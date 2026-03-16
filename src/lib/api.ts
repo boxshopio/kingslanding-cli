@@ -204,9 +204,11 @@ export class ApiClient {
     body: Buffer,
     contentType: string,
   ): Promise<void> {
+    // LocalStack presigned URLs use Docker-internal hostname; rewrite for host access
+    const url = presignedUrl.replace("http://localstack:", "http://localhost:");
     let response: Response;
     try {
-      response = await fetch(presignedUrl, {
+      response = await fetch(url, {
         method: "PUT",
         body,
         headers: { "Content-Type": contentType },
