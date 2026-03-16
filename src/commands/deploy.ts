@@ -122,7 +122,7 @@ export function registerDeployCommand(program: Command): void {
             ) {
               spinner.stop();
 
-              const isTTY = process.stdin.isTTY;
+              const isTTY = process.stdout.isTTY;
               if (isTTY) {
                 const shouldCreate = await confirm({
                   message:

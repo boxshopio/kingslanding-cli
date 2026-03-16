@@ -61,10 +61,18 @@ export function registerLoginCommand(program: Command): void {
 
       spinner.stop();
 
-      api.updateAuthHeader(
-        "Bearer " + loadCredentials(apiUrl)!.access_token,
-      );
-      const account = await api.getAccount();
-      console.log("Logged in as " + account.email);
+      const newCreds = loadCredentials(apiUrl);
+      if (!newCreds) {
+        console.log("Logged in.");
+        return;
+      }
+
+      api.updateAuthHeader("Bearer " + newCreds.access_token);
+      try {
+        const account = await api.getAccount();
+        console.log("Logged in as " + account.email);
+      } catch {
+        console.log("Logged in.");
+      }
     });
 }

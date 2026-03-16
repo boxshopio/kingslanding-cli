@@ -32,14 +32,17 @@ export function registerProjectsCommand(program: Command): void {
 
       const rows = projects.map((p) => [
         p.name,
+        p.cloudfront_url,
         String(p.file_count),
         formatBytes(p.total_size_bytes),
-        p.cloudfront_url,
+        p.last_updated
+          ? new Date(p.last_updated * 1000).toLocaleDateString()
+          : "—",
       ]);
 
       console.log(
         formatTable(
-          ["Name", "Files", "Size", "URL"],
+          ["NAME", "URL", "FILES", "SIZE", "LAST DEPLOYED"],
           rows,
           "No projects found.",
         ),

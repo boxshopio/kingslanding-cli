@@ -9,6 +9,10 @@ import { registerProjectsCommand } from "./commands/projects.js";
 import { registerWhoamiCommand } from "./commands/whoami.js";
 import { registerDeployKeyCommand } from "./commands/deploy-key.js";
 import { CLIError } from "./lib/errors.js";
+import { checkCredentialPermissions } from "./lib/auth.js";
+
+const warning = checkCredentialPermissions();
+if (warning) console.warn(warning);
 
 const program = new Command();
 

@@ -59,7 +59,7 @@ export function checkCredentialPermissions(credPath?: string): string | null {
   if (!fs.existsSync(p)) return null;
   const stats = fs.statSync(p);
   const perms = stats.mode & 0o777;
-  if (perms !== 0o600) {
+  if (perms & 0o177) {
     return "Warning: " + p + " has open permissions. Run: chmod 600 " + p;
   }
   return null;
