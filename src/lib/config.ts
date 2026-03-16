@@ -64,3 +64,9 @@ export function writeProjectConfig(cwd: string, config: Omit<ProjectConfig, "api
 export function isLocalMode(apiUrl: string): boolean {
   return apiUrl === LOCAL_API_URL;
 }
+
+export function siteUrl(projectName: string, apiUrl: string): string {
+  if (apiUrl === LOCAL_API_URL) return "https://" + projectName + ".kl.test";
+  if (apiUrl.includes(".dev.")) return "https://" + projectName + ".dev.kingslanding.io";
+  return "https://" + projectName + ".kingslanding.io";
+}

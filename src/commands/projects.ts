@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { ApiClient } from "../lib/api.js";
-import { resolveApiUrl } from "../lib/config.js";
+import { resolveApiUrl, siteUrl } from "../lib/config.js";
 import { getAuthHeader } from "../lib/auth.js";
 import { formatTable, formatBytes } from "../lib/output.js";
 import { AuthError } from "../lib/errors.js";
@@ -32,7 +32,7 @@ export function registerProjectsCommand(program: Command): void {
 
       const rows = projects.map((p) => [
         p.name,
-        p.cloudfront_url,
+        siteUrl(p.name, apiUrl),
         String(p.file_count),
         formatBytes(p.total_size_bytes),
         p.last_updated
