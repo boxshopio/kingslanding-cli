@@ -254,8 +254,8 @@ export class ApiClient {
     if (!response.ok) {
       let detail = "HTTP " + response.status;
       try {
-        const json = await response.json();
-        if (json.detail) detail = json.detail;
+        const json = (await response.json()) as Record<string, unknown>;
+        if (typeof json.detail === "string") detail = json.detail;
       } catch {
         // Non-JSON error body
       }
