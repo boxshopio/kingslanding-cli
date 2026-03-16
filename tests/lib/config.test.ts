@@ -7,6 +7,7 @@ let resolveApiUrl: typeof import("../../src/lib/config.js").resolveApiUrl;
 let loadProjectConfig: typeof import("../../src/lib/config.js").loadProjectConfig;
 let writeProjectConfig: typeof import("../../src/lib/config.js").writeProjectConfig;
 let isLocalMode: typeof import("../../src/lib/config.js").isLocalMode;
+let siteUrl: typeof import("../../src/lib/config.js").siteUrl;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -15,6 +16,7 @@ beforeEach(async () => {
   loadProjectConfig = mod.loadProjectConfig;
   writeProjectConfig = mod.writeProjectConfig;
   isLocalMode = mod.isLocalMode;
+  siteUrl = mod.siteUrl;
 });
 
 describe("resolveApiUrl", () => {
@@ -99,5 +101,23 @@ describe("isLocalMode", () => {
 
   it("returns false for prod API URL", () => {
     expect(isLocalMode("https://api.kingslanding.io")).toBe(false);
+  });
+});
+
+describe("siteUrl", () => {
+  it("derives site URL from prod API URL", () => {
+    expect(siteUrl("my-site", "https://api.kingslanding.io")).toBe("https://my-site.kingslanding.io");
+  });
+
+  it("derives site URL from dev API URL", () => {
+    expect(siteUrl("my-site", "https://api.dev.kingslanding.io")).toBe("https://my-site.dev.kingslanding.io");
+  });
+
+  it("derives site URL from local API URL", () => {
+    expect(siteUrl("my-site", "https://api.kl.test")).toBe("https://my-site.kl.test");
+  });
+
+  it("handles custom API URLs", () => {
+    expect(siteUrl("proj", "https://api.staging.example.com")).toBe("https://proj.staging.example.com");
   });
 });

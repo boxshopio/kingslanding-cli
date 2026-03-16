@@ -66,7 +66,11 @@ export function isLocalMode(apiUrl: string): boolean {
 }
 
 export function siteUrl(projectName: string, apiUrl: string): string {
-  if (apiUrl === LOCAL_API_URL) return "https://" + projectName + ".kl.test";
-  if (apiUrl.includes(".dev.")) return "https://" + projectName + ".dev.kingslanding.io";
-  return "https://" + projectName + ".kingslanding.io";
+  try {
+    const host = new URL(apiUrl).hostname; // e.g. "api.kingslanding.io"
+    const domain = host.replace(/^api\./, ""); // e.g. "kingslanding.io"
+    return "https://" + projectName + "." + domain;
+  } catch {
+    return "https://" + projectName + ".kingslanding.io";
+  }
 }
