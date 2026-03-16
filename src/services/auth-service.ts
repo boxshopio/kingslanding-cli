@@ -28,6 +28,7 @@ export class AuthService {
       await this.api.createDeviceCode();
     onShowCode(user_code, verification_url);
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (pollInterval > 0) {
         await new Promise((resolve) => setTimeout(resolve, pollInterval));

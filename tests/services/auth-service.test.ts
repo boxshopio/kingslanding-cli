@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { AuthService } from "../../src/services/auth-service.js";
 import type { ApiClient } from "../../src/lib/api.js";
 

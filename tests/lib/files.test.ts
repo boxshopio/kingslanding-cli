@@ -4,9 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import {
   buildFileManifest,
-  FileEntry,
   MAX_FILE_SIZE,
-  MAX_FILE_COUNT,
   formatBytes,
 } from "../../src/lib/files.js";
 
