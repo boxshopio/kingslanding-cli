@@ -99,7 +99,7 @@ pause
 # --- Auth -------------------------------------------------------------------
 
 if [[ "$ENV" == "dev" ]]; then
-  step "1/8: kl login (device flow)"
+  step "1/9: kl login (device flow)"
   explain "Opens browser for Cognito login. Enter the device code shown."
   explain "This tests the full OAuth device flow against real Cognito."
   pause
@@ -108,7 +108,7 @@ if [[ "$ENV" == "dev" ]]; then
   pass
   pause
 else
-  step "1/8: kl login (skipped — local auth bypass)"
+  step "1/9: kl login (skipped — local auth bypass)"
   explain "Local stack uses LOCAL_AUTH_BYPASS=true. No login needed."
   pass
   pause
@@ -116,7 +116,7 @@ fi
 
 # --- Whoami -----------------------------------------------------------------
 
-step "2/8: kl whoami"
+step "2/9: kl whoami"
 explain "Fetches account info from GET /api/v1/account."
 explain "Should show your email and plan tier."
 pause
@@ -127,7 +127,7 @@ pause
 
 # --- Projects (before deploy) ----------------------------------------------
 
-step "3/8: kl projects"
+step "3/9: kl projects"
 explain "Lists your existing projects via GET /api/v1/projects."
 explain "May be empty if this is a fresh account."
 pause
@@ -138,7 +138,7 @@ pause
 
 # --- Deploy -----------------------------------------------------------------
 
-step "4/8: kl deploy (new project with --create)"
+step "4/9: kl deploy (new project with --create)"
 explain "Deploying a test site to project: $SMOKE_PROJECT"
 explain "Uses the two-phase protocol: manifest -> presigned S3 uploads -> finalize."
 explain "The --create flag auto-creates the project."
@@ -162,7 +162,7 @@ pause
 
 # --- Deploy update ----------------------------------------------------------
 
-step "5/8: kl deploy (update existing project)"
+step "5/9: kl deploy (update existing project)"
 explain "Deploying updated content to the same project."
 explain "This time without --create (project already exists)."
 
@@ -178,7 +178,7 @@ pause
 
 # --- Deploy key flow --------------------------------------------------------
 
-step "6/8: kl deploy-key create + status"
+step "6/9: kl deploy-key create + status"
 explain "Generates a deploy key for CI/CD usage."
 explain "The key is shown once and can't be retrieved again."
 pause
@@ -193,7 +193,7 @@ pause
 
 # --- Deploy key revoke ------------------------------------------------------
 
-step "7/8: kl deploy-key revoke"
+step "7/9: kl deploy-key revoke"
 explain "Revokes the deploy key. Will prompt for confirmation."
 pause
 
@@ -206,10 +206,27 @@ kl deploy-key status --project "$SMOKE_PROJECT"
 pass
 pause
 
+# --- Cleanup (before logout so we still have credentials) -------------------
+
+step "8/9: Cleanup"
+explain "Deleting test project: $SMOKE_PROJECT (before logout so credentials are still available)."
+
+# Build auth header from stored credentials or local bypass
+if [[ "$ENV" == "local" ]]; then
+  AUTH_HEADER="Bearer local-bypass"
+else
+  AUTH_HEADER="Bearer $(python3 -c "import json; print(json.load(open('$HOME/.kl/credentials.json')).get('$KL_API_URL',{}).get('access_token',''))" 2>/dev/null || true)"
+fi
+
+curl -sk -X DELETE "$KL_API_URL/api/v1/projects/$SMOKE_PROJECT" \
+  -H "Authorization: $AUTH_HEADER" > /dev/null 2>&1 || true
+echo "  Done."
+pause
+
 # --- Logout -----------------------------------------------------------------
 
 if [[ "$ENV" == "dev" ]]; then
-  step "8/8: kl logout"
+  step "9/9: kl logout"
   explain "Revokes refresh token in Cognito and clears local credentials."
   pause
 
@@ -221,19 +238,11 @@ if [[ "$ENV" == "dev" ]]; then
   kl whoami 2>&1 || true
   pause
 else
-  step "8/8: kl logout (skipped — local mode)"
+  step "9/9: kl logout (skipped — local mode)"
   explain "No credentials stored in local mode. Nothing to log out."
   pass
   pause
 fi
-
-# --- Cleanup ----------------------------------------------------------------
-
-step "Cleanup"
-explain "Deleting test project: $SMOKE_PROJECT"
-curl -sk -X DELETE "$KL_API_URL/api/v1/projects/$SMOKE_PROJECT" \
-  -H "Authorization: Bearer local-bypass" > /dev/null 2>&1 || true
-echo "  Done."
 
 echo ""
 echo "================================================================"
