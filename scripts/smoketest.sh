@@ -71,7 +71,7 @@ if [[ "$ENV" == "local" ]]; then
 
   echo ""
   echo "  Checking local stack health..."
-  if curl -sk "$KL_API_URL/health" | grep -q "ok"; then
+  if curl -sk "$KL_API_URL/health" | grep -q "healthy"; then
     echo "  Local stack is healthy."
   else
     echo "  ERROR: Local stack not reachable. Run 'km up local' first."
@@ -86,7 +86,7 @@ else
 
   echo ""
   echo "  Checking dev API health..."
-  if curl -s "$KL_API_URL/health" | grep -q "ok"; then
+  if curl -s "$KL_API_URL/health" | grep -q "healthy"; then
     echo "  Dev API is healthy."
   else
     echo "  ERROR: Dev API not reachable. Check VPN/network."
