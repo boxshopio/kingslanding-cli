@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.git
+.env*
+.DS_Store
+tests
+scripts
+*.md
+.eslintrc.cjs
+.prettierrc
+vitest.config.ts
