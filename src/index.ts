@@ -8,6 +8,11 @@ import { registerDeployCommand } from "./commands/deploy.js";
 import { registerProjectsCommand } from "./commands/projects.js";
 import { registerWhoamiCommand } from "./commands/whoami.js";
 import { registerDeployKeyCommand } from "./commands/deploy-key.js";
+import { registerComposeDeploy } from "./commands/compose-deploy.js";
+import { registerComposePsCommand } from "./commands/compose-ps.js";
+import { registerComposeLogsCommand } from "./commands/compose-logs.js";
+import { registerComposeRunCommand } from "./commands/compose-run.js";
+import { registerComposeDownCommand } from "./commands/compose-down.js";
 import { CLIError } from "./lib/errors.js";
 import { checkCredentialPermissions } from "./lib/auth.js";
 
@@ -28,6 +33,11 @@ registerDeployCommand(program);
 registerProjectsCommand(program);
 registerWhoamiCommand(program);
 registerDeployKeyCommand(program);
+registerComposeDeploy(program);
+registerComposePsCommand(program);
+registerComposeLogsCommand(program);
+registerComposeRunCommand(program);
+registerComposeDownCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   if (err instanceof CLIError) {
