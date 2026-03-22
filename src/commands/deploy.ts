@@ -1,8 +1,9 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { confirm } from "@inquirer/prompts";
 import { ApiClient } from "../lib/api.js";
-import { resolveApiUrl, loadProjectConfig } from "../lib/config.js";
+import { resolveApiUrl, resolveComputeApiUrl, loadProjectConfig } from "../lib/config.js";
 import { getAuthHeader, loadCredentials, isDeployKeyAuth } from "../lib/auth.js";
 import { buildFileManifest } from "../lib/files.js";
 import { createSpinner, formatBytes } from "../lib/output.js";
@@ -10,6 +11,28 @@ import { CLIError, ApiError, AuthError } from "../lib/errors.js";
 import { AuthService } from "../services/auth-service.js";
 import { DeployService, defaultReadFile } from "../services/deploy-service.js";
 import { ProjectService } from "../services/project-service.js";
+import { ComputeService } from "../services/compute-service.js";
+
+const COMPOSE_FILE_NAMES = [
+  "docker-compose.yml",
+  "docker-compose.yaml",
+  "compose.yml",
+  "compose.yaml",
+];
+
+function findComposeFile(dir: string, explicitFile?: string): string | null {
+  if (explicitFile) {
+    const resolved = path.resolve(dir, explicitFile);
+    return fs.existsSync(resolved) ? resolved : null;
+  }
+  for (const name of COMPOSE_FILE_NAMES) {
+    const candidate = path.join(dir, name);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
 
 export function registerDeployCommand(program: Command): void {
   program
@@ -20,6 +43,7 @@ export function registerDeployCommand(program: Command): void {
     .option("-t, --team <slug>", "Team slug")
     .option("--create", "Create project if it does not exist")
     .option("-v, --verbose", "Show detailed output")
+    .option("-f, --file <path>", "Path to compose file (compose deploy only)")
     .action(
       async (
         dirArg: string | undefined,
@@ -28,11 +52,49 @@ export function registerDeployCommand(program: Command): void {
           team?: string;
           create?: boolean;
           verbose?: boolean;
+          file?: string;
         },
       ) => {
         const cwd = process.cwd();
         const config = loadProjectConfig(cwd);
         const apiUrl = resolveApiUrl(cwd);
+
+        // Resolve deploy directory early so compose detection uses the right path
+        const relativeDir = dirArg ?? config?.directory ?? ".";
+        const deployDir = path.resolve(cwd, relativeDir);
+
+        // Auto-detect compose deploy
+        const composePath = findComposeFile(deployDir, options.file);
+        if (composePath) {
+          const projectName = options.project ?? config?.project;
+          if (!projectName) {
+            throw new CLIError(
+              "No project name. Use --project <name> or run `kl init`.",
+            );
+          }
+
+          const computeApiUrl = resolveComputeApiUrl(cwd);
+          const authHeader = getAuthHeader(computeApiUrl);
+          if (!authHeader) {
+            throw new AuthError("Not logged in. Run `kl login` first.");
+          }
+
+          const composeYaml = fs.readFileSync(composePath, "utf-8");
+          const computeService = new ComputeService(computeApiUrl, authHeader);
+
+          const spinner = createSpinner("Deploying...");
+          spinner.start();
+
+          try {
+            const result = await computeService.deploy(projectName, composeYaml);
+            spinner.stop();
+            console.log("Live at " + result.url);
+          } catch (err) {
+            spinner.stop();
+            throw err;
+          }
+          return;
+        }
 
         // Resolve project name
         const projectName = options.project ?? config?.project;
@@ -41,10 +103,6 @@ export function registerDeployCommand(program: Command): void {
             "No project name. Use --project <name> or run `kl init`.",
           );
         }
-
-        // Resolve deploy directory
-        const relativeDir = dirArg ?? config?.directory ?? ".";
-        const deployDir = path.resolve(cwd, relativeDir);
 
         // Resolve team
         let teamId: string | undefined;
