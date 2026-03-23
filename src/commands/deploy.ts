@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import { confirm } from "@inquirer/prompts";
 import { ApiClient } from "../lib/api.js";
-import { resolveApiUrl, resolveComputeApiUrl, loadProjectConfig } from "../lib/config.js";
+import { resolveApiUrl, getComputeUrl, loadProjectConfig } from "../lib/config.js";
 import { getAuthHeader, loadCredentials, isDeployKeyAuth } from "../lib/auth.js";
 import { buildFileManifest } from "../lib/files.js";
 import { createSpinner, formatBytes } from "../lib/output.js";
@@ -73,12 +73,12 @@ export function registerDeployCommand(program: Command): void {
             );
           }
 
-          const computeApiUrl = resolveComputeApiUrl(cwd);
-          const authHeader = getAuthHeader(computeApiUrl);
+          const authHeader = getAuthHeader(apiUrl);
           if (!authHeader) {
             throw new AuthError("Not logged in. Run `kl login` first.");
           }
 
+          const computeApiUrl = await getComputeUrl();
           const composeYaml = fs.readFileSync(composePath, "utf-8");
           const computeService = new ComputeService(computeApiUrl, authHeader);
 

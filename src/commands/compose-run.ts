@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { ComputeService } from "../services/compute-service.js";
-import { resolveComputeApiUrl, loadProjectConfig } from "../lib/config.js";
+import { resolveApiUrl, getComputeUrl, loadProjectConfig } from "../lib/config.js";
 import { getAuthHeader } from "../lib/auth.js";
 import { CLIError, AuthError } from "../lib/errors.js";
 
@@ -21,12 +21,13 @@ export function registerComposeRunCommand(program: Command): void {
         );
       }
 
-      const computeApiUrl = resolveComputeApiUrl(cwd);
-      const authHeader = getAuthHeader(computeApiUrl);
+      const apiUrl = resolveApiUrl(cwd);
+      const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
       }
 
+      const computeApiUrl = await getComputeUrl();
       const computeService = new ComputeService(computeApiUrl, authHeader);
       const result = await computeService.execCommand(
         projectId,
