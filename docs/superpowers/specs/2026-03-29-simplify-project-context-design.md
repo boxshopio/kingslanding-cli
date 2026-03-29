@@ -70,9 +70,16 @@ def resolve_project(project_name: str, user: CurrentUser, team_id: str | None = 
 
     # Authorize caller against the resolved owner
     if project.get("owner_type") == "team":
-        _check_team_membership(owner_id, user["sub"])
+        team = get_team(owner_id)
+        member = get_member(owner_id, user["sub"])
+        if not member:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Project '{project_name}' is owned by team '{team['slug']}'. "
+                       f"You are not a member of this team. Ask a team admin to invite you.",
+            )
     elif owner_id != user["sub"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Not authorized to access this project")
 
     return owner_id, project
 ```
@@ -83,7 +90,11 @@ Queries the `project_names` table by hash key `name`, returns the `user_sub` fie
 
 #### Deploy key auth
 
-Deploy keys are already scoped to a specific project and owner on the server side. When a request authenticates via deploy key (rather than JWT), the server resolves the project from the key's scope directly — `resolve_project()` applies only to the JWT auth path.
+Deploy keys are already scoped to a specific project and owner on the server side via the composite `project_id` (`project#{owner_id}#{name}`). When a request authenticates via deploy key (rather than JWT), the server extracts the owner from the key record directly — `resolve_project()` applies only to the JWT auth path.
+
+**Important:** Each router (`projects.py`, `deploy.py`, `deploy_keys.py`) has its own `_resolve_owner()` function. All of these must be updated to use `resolve_project()` for the JWT auth path. The deploy key auth path in `_resolve_deploy_context()` already works without `team_id` and needs no changes.
+
+Deploy keys survive team membership changes — the key is tied to the team+project, not the individual who created it. If the creating user leaves the team, the key continues to work. Keys only stop working if the team itself is suspended or deleted.
 
 ### 2. CLI: Drop Team from Config (kingslanding-cli)
 
@@ -99,22 +110,23 @@ Deploy keys are already scoped to a specific project and owner on the server sid
 ```
 
 - `team` field removed from the schema
-- If `team` is present in an existing `kl.json`, log a deprecation warning: "The `team` field in kl.json is no longer needed and can be removed"
+- If `team` is present in an existing `kl.json`, log a deprecation warning: "The 'team' field in kl.json is deprecated and will be ignored. The server now resolves project ownership automatically. You can safely remove it."
 - `api_url` field stays (useful for local dev override)
 
 #### Command changes
 
 **`kl init`:**
 
-- Still prompts "Who should own this project?" with choices: personal account + user's teams
-- Passes `team_id` to the creation API call
-- Does not persist team in `kl.json`
-- `--team <slug>` flag retained for non-interactive creation
+- Becomes purely local config: prompts for project name and deploy directory, writes `kl.json`
+- No team/owner prompt — owner selection happens during first deploy via the `--create` flow
+- Today `kl init` does not call the API (it only writes `kl.json`), so this is not a behavior change
+- `--team` flag removed from init
 
 **`kl deploy`:**
 
 - Stops sending `team_id` to the API (server resolves it)
-- `--team` flag only accepted when `--create` is also passed (error otherwise)
+- `--team` flag without `--create`: accepted but ignored with deprecation warning ("--team is no longer needed for deploys to existing projects and will be removed in a future version")
+- `--team` flag with `--create`: used to specify owner for new project creation
 - `--create` behavior:
   - Interactive: prompts for owner if project doesn't exist
   - Non-interactive with `KL_DEPLOY_KEY`: deploy key is already scoped to a project+owner on the server, no `--team` needed
@@ -133,6 +145,18 @@ Deploy keys are already scoped to a specific project and owner on the server sid
 - `--personal`: filters to personal projects only
 - Implementation: calls `GET /projects` (personal) + `GET /teams` + `GET /teams/{id}/projects` for each team
 
+Grouped output format:
+```
+Personal
+  NAME          URL                                    FILES  SIZE    LAST DEPLOYED
+  my-blog       https://my-blog.kingslanding.io        42     1.2MB   3/28/2026
+
+Acme Corp (acme-corp)
+  NAME          URL                                    FILES  SIZE    LAST DEPLOYED
+  marketing     https://marketing.kingslanding.io      120    4.5MB   3/29/2026
+  docs          https://docs.kingslanding.io           85     2.1MB   3/25/2026
+```
+
 **`kl whoami`:**
 
 - Existing: email, handle, plan tier
@@ -141,7 +165,12 @@ Deploy keys are already scoped to a specific project and owner on the server sid
 **All other commands** (`ps`, `logs`, `run`, `down`, `deploy-key create/status/revoke`):
 
 - Stop passing `team_id` — server resolves from project name
-- `--team` flags removed
+- `--team` flags: accepted but ignored with deprecation warning for one major version, then removed
+
+**Verbose output (`--verbose` / `-v`):**
+
+- When deploying, print the resolved owner context: `Deploying to marketing-site (owner: acme-corp)`
+- Helps users verify the server resolved ownership correctly, replacing the signal previously provided by the `team` field in `kl.json`
 
 #### Service layer changes
 
@@ -190,7 +219,7 @@ runs:
       id: deploy
       shell: bash
       run: |
-        OUTPUT=$(npx --yes @kingslanding/cli@latest deploy "${{ inputs.directory }}" \
+        OUTPUT=$(npx --yes @kingslanding/cli@^1 deploy "${{ inputs.directory }}" \
           --project "${{ inputs.project }}" \
           --json)
         echo "deployment-id=$(echo "$OUTPUT" | jq -r '.deployment_id')" >> "$GITHUB_OUTPUT"
@@ -209,11 +238,13 @@ runs:
 
 **`package.json`:** Remove or reduce to minimal metadata. No runtime dependencies needed.
 
+**Dependency:** The CLI's `--json` flag must ship before or simultaneously with the action rewrite. The composite action depends on structured JSON output for setting GitHub Action outputs.
+
 **Trade-offs:**
 
 - Adds ~5-10s for `npx` download (cached on subsequent steps in same workflow)
 - Requires Node.js on runner (GitHub-hosted runners include it)
-- Version pinning: `@kingslanding/cli@latest` can be pinned to a specific version for stability
+- Version pinned to `@^1` (semver-safe) to avoid breaking CI on new major releases
 
 **Benefits:**
 
@@ -228,17 +259,33 @@ runs:
 |---------|--------|--------|
 | API endpoints | `team_id` becomes optional | Non-breaking. Existing clients still work. |
 | `kl.json` | `team` field ignored | Deprecation warning logged. No breakage. |
-| CLI `--team` flags | Removed from most commands | Breaking for scripts using `--team` on deploy/ps/logs/etc. Retained on `init` and `deploy --create`. |
+| CLI `--team` flags | Warn-and-ignore on most commands | Deprecation warning logged. Scripts continue to work. Retained on `deploy --create` for project creation. Flags removed in next major version. |
 | GitHub Action inputs | Same inputs, same outputs | Non-breaking for action consumers. |
 | `PUT /api/v1/upload` endpoint | Unused after action rewrite | Can be deprecated separately. Not removed in this change. |
+
+## Out of Scope
+
+- **Project ownership transfer.** Moving a project from personal to team (or between teams) is not addressed. A future `kl transfer` command could handle this.
+- **Deprecation of `PUT /api/v1/upload`.** The legacy single-payload upload endpoint used by the current action is left in place. It can be deprecated separately once the action rewrite ships and existing action versions age out.
+
+## Sequencing
+
+The changes must ship in this order:
+
+1. **API** — `resolve_project()` and optional `team_id` (backward compatible, can ship independently)
+2. **CLI** — drop team from config, add `--json` flag, deprecation warnings (requires API change)
+3. **Action** — rewrite as composite action (requires CLI `--json` flag)
 
 ## Testing
 
 **API:**
 
 - Unit test `resolve_project()` for personal projects, team projects, and unauthorized access
+- Unit test `resolve_project()` returns rich 403 message with team slug for team permission failures
 - Unit test `get_project_owner()` for existing and non-existent projects
+- Unit test: `team_id` provided as optimization hint still works (backward compat)
 - Integration test: deploy to a team project without passing `team_id`
+- Integration test: deploy-key create/status/revoke for team project without `team_id`
 - Integration test: existing clients passing `team_id` still work
 
 **CLI:**
@@ -246,10 +293,13 @@ runs:
 - Config loader: test deprecation warning when `team` is present in `kl.json`
 - Config loader: test that `team` field is not read/used
 - Deploy service: test that `team_id` is not sent to API
-- `kl projects`: test grouped output (personal + teams)
+- `--team` flag on non-creation commands: test deprecation warning is logged and flag is ignored
+- `kl init`: test that no team prompt is shown, only project name + directory
+- `kl projects`: test grouped output format (personal + teams)
 - `kl whoami`: test team membership display
 - `kl deploy --json`: test structured output format
 - `kl deploy --create`: test interactive owner prompt and `--team` flag
+- `kl deploy --verbose`: test resolved owner context is printed
 
 **Action:**
 
