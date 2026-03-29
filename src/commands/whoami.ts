@@ -21,7 +21,19 @@ export function registerWhoamiCommand(program: Command): void {
       }
 
       const api = new ApiClient(apiUrl, authHeader);
-      const account = await api.getAccount();
+      const [account, teams] = await Promise.all([
+        api.getAccount(),
+        api.listTeams(),
+      ]);
+
       console.log(account.email + " (" + account.plan_tier + ")");
+
+      if (teams.length > 0) {
+        console.log();
+        console.log("Teams:");
+        for (const t of teams) {
+          console.log("  " + t.team.name + " (" + t.team.slug + ") — " + t.role.toLowerCase());
+        }
+      }
     });
 }
