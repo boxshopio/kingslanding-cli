@@ -9,7 +9,6 @@ export const KL_DIR = path.join(os.homedir(), ".kl");
 export interface ProjectConfig {
   project: string;
   directory: string;
-  team: string | null;
   api_url?: string;
 }
 
@@ -42,20 +41,28 @@ export function loadProjectConfig(cwd: string): ProjectConfig | null {
 
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
-    const parsed = JSON.parse(raw) as Partial<ProjectConfig>;
-    if (!parsed.project) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!parsed.project || typeof parsed.project !== "string") return null;
+
+    if ("team" in parsed && parsed.team != null) {
+      console.warn(
+        'Warning: The "team" field in kl.json is deprecated and will be ignored. ' +
+        "The server now resolves project ownership automatically. " +
+        "You can safely remove it.",
+      );
+    }
+
     return {
       project: parsed.project,
-      directory: parsed.directory ?? ".",
-      team: parsed.team ?? null,
-      api_url: parsed.api_url,
+      directory: typeof parsed.directory === "string" ? parsed.directory : ".",
+      api_url: typeof parsed.api_url === "string" ? parsed.api_url : undefined,
     };
   } catch {
     return null;
   }
 }
 
-export function writeProjectConfig(cwd: string, config: Omit<ProjectConfig, "api_url">): void {
+export function writeProjectConfig(cwd: string, config: Pick<ProjectConfig, "project" | "directory">): void {
   const configPath = path.join(cwd, "kl.json");
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
 }
