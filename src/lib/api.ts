@@ -8,7 +8,6 @@ export interface FileManifestEntry {
 
 export interface DeployInitiateRequest {
   files: FileManifestEntry[];
-  team_id?: string;
 }
 
 export interface DeployInitiateResponse {
@@ -16,6 +15,7 @@ export interface DeployInitiateResponse {
   expires_at: number;
   uploads: { path: string; presigned_url: string }[];
   project_created: boolean;
+  owner?: { type: string; slug?: string | null };
 }
 
 export interface DeployFinalizeResponse {
@@ -152,51 +152,23 @@ export class ApiClient {
   async finalizeDeploy(
     projectName: string,
     deploymentId: string,
-    teamId?: string,
   ): Promise<DeployFinalizeResponse> {
-    const qs = teamId ? "?team_id=" + teamId : "";
     return this.request(
       "POST",
-      "/projects/" +
-        projectName +
-        "/deploy/" +
-        deploymentId +
-        "/finalize" +
-        qs,
+      "/projects/" + projectName + "/deploy/" + deploymentId + "/finalize",
     );
   }
 
-  async createDeployKey(
-    projectName: string,
-    teamId?: string,
-  ): Promise<DeployKeyResponse> {
-    const qs = teamId ? "?team_id=" + teamId : "";
-    return this.request(
-      "POST",
-      "/projects/" + projectName + "/deploy-key" + qs,
-    );
+  async createDeployKey(projectName: string): Promise<DeployKeyResponse> {
+    return this.request("POST", "/projects/" + projectName + "/deploy-key");
   }
 
-  async getDeployKeyStatus(
-    projectName: string,
-    teamId?: string,
-  ): Promise<DeployKeyStatusResponse> {
-    const qs = teamId ? "?team_id=" + teamId : "";
-    return this.request(
-      "GET",
-      "/projects/" + projectName + "/deploy-key" + qs,
-    );
+  async getDeployKeyStatus(projectName: string): Promise<DeployKeyStatusResponse> {
+    return this.request("GET", "/projects/" + projectName + "/deploy-key");
   }
 
-  async revokeDeployKey(
-    projectName: string,
-    teamId?: string,
-  ): Promise<void> {
-    const qs = teamId ? "?team_id=" + teamId : "";
-    await this.request(
-      "DELETE",
-      "/projects/" + projectName + "/deploy-key" + qs,
-    );
+  async revokeDeployKey(projectName: string): Promise<void> {
+    await this.request("DELETE", "/projects/" + projectName + "/deploy-key");
   }
 
   async uploadFile(

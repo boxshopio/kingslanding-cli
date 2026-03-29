@@ -146,7 +146,7 @@ describe("DeployService", () => {
       ).rejects.toThrow("could not be uploaded");
     });
 
-    it("passes create option and team_id", async () => {
+    it("passes create option", async () => {
       const api = mockApiClient({
         initiateDeploy: vi.fn().mockResolvedValue({
           deployment_id: "d",
@@ -163,19 +163,14 @@ describe("DeployService", () => {
         readFile: vi.fn(),
         onProgress: vi.fn(),
         create: true,
-        teamId: "team-123",
       });
 
       expect(api.initiateDeploy).toHaveBeenCalledWith(
         "new-site",
-        expect.objectContaining({ team_id: "team-123" }),
+        expect.objectContaining({ files: [] }),
         { create: true },
       );
-      expect(api.finalizeDeploy).toHaveBeenCalledWith(
-        "new-site",
-        "d",
-        "team-123",
-      );
+      expect(api.finalizeDeploy).toHaveBeenCalledWith("new-site", "d");
     });
   });
 });

@@ -5,12 +5,8 @@ import { resolveApiUrl, loadProjectConfig } from "../lib/config.js";
 import { getAuthHeader } from "../lib/auth.js";
 import { CLIError, AuthError } from "../lib/errors.js";
 import { DeployKeyService } from "../services/deploy-key-service.js";
-import { ProjectService } from "../services/project-service.js";
 
-function resolveProjectAndTeam(options: {
-  project?: string;
-  team?: string;
-}): { projectName: string; teamSlug: string | undefined } {
+function resolveProject(options: { project?: string }): string {
   const config = loadProjectConfig(process.cwd());
   const projectName = options.project ?? config?.project;
   if (!projectName) {
@@ -18,8 +14,16 @@ function resolveProjectAndTeam(options: {
       "No project name. Use --project <name> or run `kl init`.",
     );
   }
-  const teamSlug = options.team ?? config?.team ?? undefined;
-  return { projectName, teamSlug };
+  return projectName;
+}
+
+function warnTeamDeprecation(team: string | undefined): void {
+  if (team) {
+    console.warn(
+      "Warning: --team is no longer needed and will be removed in a future version. " +
+      "The server now resolves project ownership automatically.",
+    );
+  }
 }
 
 export function registerDeployKeyCommand(program: Command): void {
@@ -31,58 +35,48 @@ export function registerDeployKeyCommand(program: Command): void {
     .command("create")
     .description("Create a deploy key for a project")
     .option("-p, --project <name>", "Project name")
-    .option("-t, --team <slug>", "Team slug")
+    .option("-t, --team <slug>", "Team slug (deprecated, ignored)")
     .action(async (options: { project?: string; team?: string }) => {
+      warnTeamDeprecation(options.team);
+
       const apiUrl = resolveApiUrl();
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
       }
 
-      const { projectName, teamSlug } = resolveProjectAndTeam(options);
+      const projectName = resolveProject(options);
       const api = new ApiClient(apiUrl, authHeader);
-
-      let teamId: string | undefined;
-      if (teamSlug) {
-        const projectService = new ProjectService(api);
-        teamId = await projectService.resolveTeamId(teamSlug);
-      }
-
       const deployKeyService = new DeployKeyService(api);
-      const result = await deployKeyService.create(projectName, teamId);
+      const result = await deployKeyService.create(projectName);
 
       console.log();
       console.log("Deploy key created for " + projectName + ":");
       console.log();
       console.log("  " + result.key);
       console.log();
-      console.log(
-        "Save this key now — it will not be shown again.",
-      );
-      console.log(
-        "Set it as KL_DEPLOY_KEY in your CI/CD environment.",
-      );
+      console.log("Save this key now — it will not be shown again.");
+      console.log("Set it as KL_DEPLOY_KEY in your CI/CD environment.");
     });
 
   cmd
     .command("revoke")
     .description("Revoke the deploy key for a project")
     .option("-p, --project <name>", "Project name")
-    .option("-t, --team <slug>", "Team slug")
+    .option("-t, --team <slug>", "Team slug (deprecated, ignored)")
     .action(async (options: { project?: string; team?: string }) => {
+      warnTeamDeprecation(options.team);
+
       const apiUrl = resolveApiUrl();
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
       }
 
-      const { projectName, teamSlug } = resolveProjectAndTeam(options);
+      const projectName = resolveProject(options);
 
       const shouldRevoke = await confirm({
-        message:
-          "Revoke the deploy key for " +
-          projectName +
-          "? This cannot be undone.",
+        message: "Revoke the deploy key for " + projectName + "? This cannot be undone.",
         default: false,
       });
 
@@ -92,15 +86,8 @@ export function registerDeployKeyCommand(program: Command): void {
       }
 
       const api = new ApiClient(apiUrl, authHeader);
-
-      let teamId: string | undefined;
-      if (teamSlug) {
-        const projectService = new ProjectService(api);
-        teamId = await projectService.resolveTeamId(teamSlug);
-      }
-
       const deployKeyService = new DeployKeyService(api);
-      await deployKeyService.revoke(projectName, teamId);
+      await deployKeyService.revoke(projectName);
       console.log("Deploy key revoked for " + projectName + ".");
     });
 
@@ -108,25 +95,20 @@ export function registerDeployKeyCommand(program: Command): void {
     .command("status")
     .description("Check deploy key status for a project")
     .option("-p, --project <name>", "Project name")
-    .option("-t, --team <slug>", "Team slug")
+    .option("-t, --team <slug>", "Team slug (deprecated, ignored)")
     .action(async (options: { project?: string; team?: string }) => {
+      warnTeamDeprecation(options.team);
+
       const apiUrl = resolveApiUrl();
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
       }
 
-      const { projectName, teamSlug } = resolveProjectAndTeam(options);
+      const projectName = resolveProject(options);
       const api = new ApiClient(apiUrl, authHeader);
-
-      let teamId: string | undefined;
-      if (teamSlug) {
-        const projectService = new ProjectService(api);
-        teamId = await projectService.resolveTeamId(teamSlug);
-      }
-
       const deployKeyService = new DeployKeyService(api);
-      const result = await deployKeyService.status(projectName, teamId);
+      const result = await deployKeyService.status(projectName);
 
       if (result.exists) {
         console.log("Deploy key active for " + projectName);

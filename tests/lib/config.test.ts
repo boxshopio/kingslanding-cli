@@ -59,12 +59,24 @@ describe("resolveApiUrl", () => {
 });
 
 describe("loadProjectConfig", () => {
-  it("returns config from kl.json", () => {
+  it("returns config without team field", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-config-test-"));
+    const klJson = path.join(tmpDir, "kl.json");
+    fs.writeFileSync(klJson, JSON.stringify({ project: "my-site", directory: "dist" }));
+    const config = loadProjectConfig(tmpDir);
+    expect(config).toEqual({ project: "my-site", directory: "dist" });
+    expect(config).not.toHaveProperty("team");
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it("logs deprecation warning when team field is present", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-config-test-"));
     const klJson = path.join(tmpDir, "kl.json");
     fs.writeFileSync(klJson, JSON.stringify({ project: "my-site", directory: "dist", team: "frontend" }));
-    const config = loadProjectConfig(tmpDir);
-    expect(config).toEqual({ project: "my-site", directory: "dist", team: "frontend" });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    loadProjectConfig(tmpDir);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("deprecated"));
+    warnSpy.mockRestore();
     fs.rmSync(tmpDir, { recursive: true });
   });
 
@@ -84,12 +96,13 @@ describe("loadProjectConfig", () => {
 });
 
 describe("writeProjectConfig", () => {
-  it("writes kl.json to directory", () => {
+  it("writes kl.json without team field", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-config-write-"));
-    writeProjectConfig(tmpDir, { project: "my-site", directory: "dist", team: null });
+    writeProjectConfig(tmpDir, { project: "my-site", directory: "dist" });
     const written = JSON.parse(fs.readFileSync(path.join(tmpDir, "kl.json"), "utf-8"));
     expect(written.project).toBe("my-site");
     expect(written.directory).toBe("dist");
+    expect(written).not.toHaveProperty("team");
     fs.rmSync(tmpDir, { recursive: true });
   });
 });

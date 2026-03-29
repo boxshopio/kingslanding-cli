@@ -10,7 +10,6 @@ import { createSpinner, formatBytes } from "../lib/output.js";
 import { CLIError, ApiError, AuthError } from "../lib/errors.js";
 import { AuthService } from "../services/auth-service.js";
 import { DeployService, defaultReadFile } from "../services/deploy-service.js";
-import { ProjectService } from "../services/project-service.js";
 import { ComputeService } from "../services/compute-service.js";
 
 const COMPOSE_FILE_NAMES = [
@@ -44,6 +43,7 @@ export function registerDeployCommand(program: Command): void {
     .option("--create", "Create project if it does not exist")
     .option("-v, --verbose", "Show detailed output")
     .option("-f, --file <path>", "Path to compose file (compose deploy only)")
+    .option("--json", "Output deployment result as JSON")
     .action(
       async (
         dirArg: string | undefined,
@@ -53,6 +53,7 @@ export function registerDeployCommand(program: Command): void {
           create?: boolean;
           verbose?: boolean;
           file?: string;
+          json?: boolean;
         },
       ) => {
         const cwd = process.cwd();
@@ -104,9 +105,12 @@ export function registerDeployCommand(program: Command): void {
           );
         }
 
-        // Resolve team
-        let teamId: string | undefined;
-        const teamSlug = options.team ?? config?.team;
+        // Deprecation warning for --team without --create
+        if (options.team && !options.create) {
+          console.warn(
+            "Warning: --team is no longer needed for deploys to existing projects and will be removed in a future version.",
+          );
+        }
 
         // Ensure auth
         let authHeader = getAuthHeader(apiUrl);
@@ -128,12 +132,6 @@ export function registerDeployCommand(program: Command): void {
               api.updateAuthHeader(authHeader);
             }
           }
-        }
-
-        // Resolve team slug to ID
-        if (teamSlug) {
-          const projectService = new ProjectService(api);
-          teamId = await projectService.resolveTeamId(teamSlug);
         }
 
         // Build manifest
@@ -164,7 +162,6 @@ export function registerDeployCommand(program: Command): void {
               spinner.text = "Uploading " + completed + "/" + total + " files...";
             },
             create,
-            teamId,
           });
         };
 
@@ -209,19 +206,35 @@ export function registerDeployCommand(program: Command): void {
           spinner.stop();
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-          if (options.verbose) {
-            console.log(
-              "Deployed " +
-                result.files +
-                " files (" +
-                formatBytes(result.total_size) +
-                ") in " +
-                elapsed +
-                "s",
-            );
-          }
+          if (options.json) {
+            console.log(JSON.stringify({
+              deployment_id: result.deployment_id,
+              project_url: result.url,
+              files: result.files,
+              total_size: result.total_size,
+            }));
+          } else {
+            if (options.verbose && result.owner) {
+              const ownerLabel = result.owner.type === "team" && result.owner.slug
+                ? result.owner.slug
+                : "personal";
+              console.log("Deploying to " + projectName + " (owner: " + ownerLabel + ")");
+            }
 
-          console.log("Done. " + result.url);
+            if (options.verbose) {
+              console.log(
+                "Deployed " +
+                  result.files +
+                  " files (" +
+                  formatBytes(result.total_size) +
+                  ") in " +
+                  elapsed +
+                  "s",
+              );
+            }
+
+            console.log("Done. " + result.url);
+          }
         } catch (err) {
           spinner.stop();
           throw err;

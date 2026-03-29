@@ -112,25 +112,6 @@ describe("ApiClient", () => {
       expect(result.url).toBe("https://my-site.kingslanding.io");
     });
 
-    it("passes team_id as query param", async () => {
-      mockFetch.mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            url: "u",
-            deployment_id: "d",
-            files: 1,
-            total_size: 100,
-          }),
-          { status: 200 },
-        ),
-      );
-
-      await api.finalizeDeploy("my-site", "deploy-123", "team-456");
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("?team_id=team-456"),
-        expect.anything(),
-      );
-    });
   });
 
   describe("uploadFile", () => {

@@ -13,22 +13,24 @@ export interface DeployOptions {
   readFile: (absolutePath: string) => Buffer;
   onProgress: (completed: number, total: number) => void;
   create?: boolean;
-  teamId?: string;
   concurrency?: number;
   retryDelayMs?: number;
+}
+
+export interface DeployResult extends DeployFinalizeResponse {
+  owner?: { type: string; slug?: string | null };
 }
 
 export class DeployService {
   constructor(private readonly api: ApiClient) {}
 
-  async deploy(options: DeployOptions): Promise<DeployFinalizeResponse> {
+  async deploy(options: DeployOptions): Promise<DeployResult> {
     const {
       projectName,
       files,
       readFile,
       onProgress,
       create,
-      teamId,
       concurrency = DEFAULT_CONCURRENCY,
       retryDelayMs = DEFAULT_RETRY_DELAY_MS,
     } = options;
@@ -41,7 +43,7 @@ export class DeployService {
 
     const initResult = await this.api.initiateDeploy(
       projectName,
-      { files: manifest, team_id: teamId },
+      { files: manifest },
       { create },
     );
 
@@ -103,7 +105,8 @@ export class DeployService {
       );
     }
 
-    return this.api.finalizeDeploy(projectName, initResult.deployment_id, teamId);
+    const finalizeResult = await this.api.finalizeDeploy(projectName, initResult.deployment_id);
+    return { ...finalizeResult, owner: initResult.owner };
   }
 }
 
