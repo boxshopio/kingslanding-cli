@@ -1,6 +1,6 @@
 {
   "name": "@kingslanding/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Deploy static sites to King's Landing from any terminal or CI/CD pipeline",
   "type": "module",
   "bin": {
@@ -27,7 +27,12 @@
     "type": "git",
     "url": "https://github.com/boxshopio/kingslanding-cli.git"
   },
-  "keywords": ["deploy", "hosting", "static-site", "cli"],
+  "keywords": [
+    "deploy",
+    "hosting",
+    "static-site",
+    "cli"
+  ],
   "license": "PROPRIETARY",
   "dependencies": {
     "@inquirer/prompts": "^7.0.0",
