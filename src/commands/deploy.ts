@@ -43,6 +43,7 @@ export function registerDeployCommand(program: Command): void {
     .option("--create", "Create project if it does not exist")
     .option("-v, --verbose", "Show detailed output")
     .option("-f, --file <path>", "Path to compose file (compose deploy only)")
+    .option("--json", "Output deployment result as JSON")
     .action(
       async (
         dirArg: string | undefined,
@@ -52,6 +53,7 @@ export function registerDeployCommand(program: Command): void {
           create?: boolean;
           verbose?: boolean;
           file?: string;
+          json?: boolean;
         },
       ) => {
         const cwd = process.cwd();
@@ -204,26 +206,35 @@ export function registerDeployCommand(program: Command): void {
           spinner.stop();
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-          if (options.verbose) {
-            console.log(
-              "Deployed " +
-                result.files +
-                " files (" +
-                formatBytes(result.total_size) +
-                ") in " +
-                elapsed +
-                "s",
-            );
-          }
+          if (options.json) {
+            console.log(JSON.stringify({
+              deployment_id: result.deployment_id,
+              project_url: result.url,
+              files: result.files,
+              total_size: result.total_size,
+            }));
+          } else {
+            if (options.verbose && result.owner) {
+              const ownerLabel = result.owner.type === "team" && result.owner.slug
+                ? result.owner.slug
+                : "personal";
+              console.log("Deploying to " + projectName + " (owner: " + ownerLabel + ")");
+            }
 
-          if (options.verbose && result.owner) {
-            const ownerLabel = result.owner.type === "team" && result.owner.slug
-              ? result.owner.slug
-              : "personal";
-            console.log("Deploying to " + projectName + " (owner: " + ownerLabel + ")");
-          }
+            if (options.verbose) {
+              console.log(
+                "Deployed " +
+                  result.files +
+                  " files (" +
+                  formatBytes(result.total_size) +
+                  ") in " +
+                  elapsed +
+                  "s",
+              );
+            }
 
-          console.log("Done. " + result.url);
+            console.log("Done. " + result.url);
+          }
         } catch (err) {
           spinner.stop();
           throw err;
