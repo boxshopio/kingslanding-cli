@@ -21,9 +21,9 @@ describe("DeployKeyService", () => {
       }),
     });
     const service = new DeployKeyService(api);
-    const result = await service.create("my-site", "team-123");
+    const result = await service.create("my-site");
     expect(result.key).toBe("kl_abc123");
-    expect(api.createDeployKey).toHaveBeenCalledWith("my-site", "team-123");
+    expect(api.createDeployKey).toHaveBeenCalledWith("my-site");
   });
 
   it("checks deploy key status", async () => {
@@ -44,7 +44,7 @@ describe("DeployKeyService", () => {
       revokeDeployKey: vi.fn().mockResolvedValue(undefined),
     });
     const service = new DeployKeyService(api);
-    await service.revoke("my-site", "team-123");
-    expect(api.revokeDeployKey).toHaveBeenCalledWith("my-site", "team-123");
+    await service.revoke("my-site");
+    expect(api.revokeDeployKey).toHaveBeenCalledWith("my-site");
   });
 });
