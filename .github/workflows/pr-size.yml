@@ -1,0 +1,58 @@
+# Managed by boxshop-cli (bs hooks) — do not edit
+name: PR Size
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const total = pr.additions + pr.deletions;
+
+            const sizes = [
+              { label: 'size/XL', min: 800 },
+              { label: 'size/L',  min: 400 },
+              { label: 'size/M',  min: 100 },
+              { label: 'size/S',  min: 0 },
+            ];
+            const match = sizes.find(s => total >= s.min);
+
+            const colors = { 'size/S': '0e8a16', 'size/M': 'fbca04', 'size/L': 'e99695', 'size/XL': 'b60205' };
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: match.label });
+            } catch {
+              await github.rest.issues.createLabel({ ...context.repo, name: match.label, color: colors[match.label] });
+            }
+
+            const current = pr.labels.map(l => l.name).filter(n => n.startsWith('size/'));
+            for (const old of current) {
+              if (old !== match.label) {
+                await github.rest.issues.removeLabel({ ...context.repo, issue_number: pr.number, name: old });
+              }
+            }
+            if (!current.includes(match.label)) {
+              await github.rest.issues.addLabels({ ...context.repo, issue_number: pr.number, labels: [match.label] });
+            }
+
+            if (total >= 400) {
+              const marker = '<!-- pr-size-bot -->';
+              const body = `${marker}\n**PR Size: ${match.label}** (${total} lines changed)\n\nThis PR exceeds 400 lines. Consider splitting into smaller, reviewable chunks when possible.`;
+
+              const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: pr.number });
+              const existing = comments.find(c => c.body.includes(marker));
+
+              if (existing) {
+                await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+              } else {
+                await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body });
+              }
+            }
