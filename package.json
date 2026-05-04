@@ -38,11 +38,11 @@
     "@inquirer/prompts": "^7.0.0",
     "commander": "^13.0.0",
     "glob": "^11.0.0",
-    "mime-types": "^2.1.35",
+    "mime-types": "^3.0.2",
     "ora": "^8.0.0"
   },
   "devDependencies": {
-    "@types/mime-types": "^2.1.4",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
