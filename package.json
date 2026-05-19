@@ -35,7 +35,7 @@
   ],
   "license": "PROPRIETARY",
   "dependencies": {
-    "@inquirer/prompts": "^7.0.0",
+    "@inquirer/prompts": "^8.4.3",
     "commander": "^13.0.0",
     "glob": "^11.0.0",
     "mime-types": "^2.1.35",
