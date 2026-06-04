@@ -1,0 +1,10 @@
+# Managed by boxshop-cli (bs hooks) — do not edit
+name: Issue Labeler
+on:
+  issues:
+    types: [opened, edited]
+jobs:
+  label:
+    uses: boxshopio/boxshop-config/.github/workflows/issue-labeler.yml@main
+    permissions:
+      issues: write
