@@ -1,37 +1,14 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Command } from "commander";
 import { confirm } from "@inquirer/prompts";
 import { ApiClient } from "../lib/api.js";
-import { resolveApiUrl, getComputeUrl, loadProjectConfig } from "../lib/config.js";
+import { resolveApiUrl, loadProjectConfig } from "../lib/config.js";
 import { getAuthHeader, loadCredentials, isDeployKeyAuth } from "../lib/auth.js";
 import { buildFileManifest } from "../lib/files.js";
 import { createSpinner, formatBytes } from "../lib/output.js";
 import { CLIError, ApiError, AuthError } from "../lib/errors.js";
 import { AuthService } from "../services/auth-service.js";
 import { DeployService, defaultReadFile } from "../services/deploy-service.js";
-import { ComputeService } from "../services/compute-service.js";
-
-const COMPOSE_FILE_NAMES = [
-  "docker-compose.yml",
-  "docker-compose.yaml",
-  "compose.yml",
-  "compose.yaml",
-];
-
-function findComposeFile(dir: string, explicitFile?: string): string | null {
-  if (explicitFile) {
-    const resolved = path.resolve(dir, explicitFile);
-    return fs.existsSync(resolved) ? resolved : null;
-  }
-  for (const name of COMPOSE_FILE_NAMES) {
-    const candidate = path.join(dir, name);
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
-}
 
 export function registerDeployCommand(program: Command): void {
   program
@@ -42,7 +19,6 @@ export function registerDeployCommand(program: Command): void {
     .option("-t, --team <slug>", "Team slug")
     .option("--create", "Create project if it does not exist")
     .option("-v, --verbose", "Show detailed output")
-    .option("-f, --file <path>", "Path to compose file (compose deploy only)")
     .option("--json", "Output deployment result as JSON")
     .action(
       async (
@@ -52,7 +28,6 @@ export function registerDeployCommand(program: Command): void {
           team?: string;
           create?: boolean;
           verbose?: boolean;
-          file?: string;
           json?: boolean;
         },
       ) => {
@@ -60,49 +35,14 @@ export function registerDeployCommand(program: Command): void {
         const config = loadProjectConfig(cwd);
         const apiUrl = resolveApiUrl(cwd);
 
-        // Resolve deploy directory early so compose detection uses the right path
+        // Resolve deploy directory
         const relativeDir = dirArg ?? config?.directory ?? ".";
         const deployDir = path.resolve(cwd, relativeDir);
-
-        // Auto-detect compose deploy
-        const composePath = findComposeFile(deployDir, options.file);
-        if (composePath) {
-          const projectName = options.project ?? config?.project;
-          if (!projectName) {
-            throw new CLIError(
-              "No project name. Use --project <name> or run `kl init`.",
-            );
-          }
-
-          const authHeader = getAuthHeader(apiUrl);
-          if (!authHeader) {
-            throw new AuthError("Not logged in. Run `kl login` first.");
-          }
-
-          const computeApiUrl = await getComputeUrl();
-          const composeYaml = fs.readFileSync(composePath, "utf-8");
-          const computeService = new ComputeService(computeApiUrl, authHeader);
-
-          const spinner = createSpinner("Deploying...");
-          spinner.start();
-
-          try {
-            const result = await computeService.deploy(projectName, composeYaml);
-            spinner.stop();
-            console.log("Live at " + result.url);
-          } catch (err) {
-            spinner.stop();
-            throw err;
-          }
-          return;
-        }
 
         // Resolve project name
         const projectName = options.project ?? config?.project;
         if (!projectName) {
-          throw new CLIError(
-            "No project name. Use --project <name> or run `kl init`.",
-          );
+          throw new CLIError("No project name. Use --project <name> or run `kl init`.");
         }
 
         // Deprecation warning for --team without --create
@@ -170,20 +110,13 @@ export function registerDeployCommand(program: Command): void {
           try {
             result = await runDeploy(options.create);
           } catch (err) {
-            if (
-              err instanceof ApiError &&
-              err.status === 404 &&
-              !options.create
-            ) {
+            if (err instanceof ApiError && err.status === 404 && !options.create) {
               spinner.stop();
 
               const isTTY = process.stdout.isTTY;
               if (isTTY) {
                 const shouldCreate = await confirm({
-                  message:
-                    'Project "' +
-                    projectName +
-                    '" does not exist. Create it?',
+                  message: 'Project "' + projectName + '" does not exist. Create it?',
                   default: true,
                 });
                 if (!shouldCreate) {
@@ -193,9 +126,7 @@ export function registerDeployCommand(program: Command): void {
                 result = await runDeploy(true);
               } else {
                 throw new CLIError(
-                  'Project "' +
-                    projectName +
-                    '" not found. Use --create to create it.',
+                  'Project "' + projectName + '" not found. Use --create to create it.',
                 );
               }
             } else {
@@ -207,17 +138,18 @@ export function registerDeployCommand(program: Command): void {
           const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
           if (options.json) {
-            console.log(JSON.stringify({
-              deployment_id: result.deployment_id,
-              project_url: result.url,
-              files: result.files,
-              total_size: result.total_size,
-            }));
+            console.log(
+              JSON.stringify({
+                deployment_id: result.deployment_id,
+                project_url: result.url,
+                files: result.files,
+                total_size: result.total_size,
+              }),
+            );
           } else {
             if (options.verbose && result.owner) {
-              const ownerLabel = result.owner.type === "team" && result.owner.slug
-                ? result.owner.slug
-                : "personal";
+              const ownerLabel =
+                result.owner.type === "team" && result.owner.slug ? result.owner.slug : "personal";
               console.log("Deploying to " + projectName + " (owner: " + ownerLabel + ")");
             }
 

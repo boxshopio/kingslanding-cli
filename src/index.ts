@@ -8,10 +8,6 @@ import { registerDeployCommand } from "./commands/deploy.js";
 import { registerProjectsCommand } from "./commands/projects.js";
 import { registerWhoamiCommand } from "./commands/whoami.js";
 import { registerDeployKeyCommand } from "./commands/deploy-key.js";
-import { registerComposePsCommand } from "./commands/compose-ps.js";
-import { registerComposeLogsCommand } from "./commands/compose-logs.js";
-import { registerComposeRunCommand } from "./commands/compose-run.js";
-import { registerComposeDownCommand } from "./commands/compose-down.js";
 import { CLIError } from "./lib/errors.js";
 import { checkCredentialPermissions } from "./lib/auth.js";
 
@@ -20,10 +16,7 @@ if (warning) console.warn(warning);
 
 const program = new Command();
 
-program
-  .name("kl")
-  .description("Deploy static sites to King's Landing")
-  .version("0.1.0");
+program.name("kl").description("Deploy static sites to King's Landing").version("0.1.0");
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
@@ -32,10 +25,6 @@ registerDeployCommand(program);
 registerProjectsCommand(program);
 registerWhoamiCommand(program);
 registerDeployKeyCommand(program);
-registerComposePsCommand(program);
-registerComposeLogsCommand(program);
-registerComposeRunCommand(program);
-registerComposeDownCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   if (err instanceof CLIError) {

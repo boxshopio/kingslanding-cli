@@ -47,8 +47,8 @@ export function loadProjectConfig(cwd: string): ProjectConfig | null {
     if ("team" in parsed && parsed.team != null) {
       console.warn(
         'Warning: The "team" field in kl.json is deprecated and will be ignored. ' +
-        "The server now resolves project ownership automatically. " +
-        "You can safely remove it.",
+          "The server now resolves project ownership automatically. " +
+          "You can safely remove it.",
       );
     }
 
@@ -62,34 +62,12 @@ export function loadProjectConfig(cwd: string): ProjectConfig | null {
   }
 }
 
-export function writeProjectConfig(cwd: string, config: Pick<ProjectConfig, "project" | "directory">): void {
+export function writeProjectConfig(
+  cwd: string,
+  config: Pick<ProjectConfig, "project" | "directory">,
+): void {
   const configPath = path.join(cwd, "kl.json");
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
-}
-
-let cachedComputeUrl: string | null = null;
-
-/**
- * Discover the compute API URL from the main API.
- * Falls back to KL_COMPUTE_API_URL env var if set (escape hatch).
- */
-export async function getComputeUrl(): Promise<string> {
-  const envOverride = process.env.KL_COMPUTE_API_URL;
-  if (envOverride) return envOverride;
-
-  if (cachedComputeUrl) return cachedComputeUrl;
-
-  const apiUrl = resolveApiUrl();
-  const response = await fetch(`${apiUrl}/api/v1/config`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch config from ${apiUrl}: ${response.status}`);
-  }
-  const config = (await response.json()) as { compute_url?: string };
-  if (!config.compute_url) {
-    throw new Error(`Compute URL not configured on ${apiUrl}. Is the compute platform deployed?`);
-  }
-  cachedComputeUrl = config.compute_url;
-  return cachedComputeUrl;
 }
 
 export function isLocalMode(apiUrl: string): boolean {
