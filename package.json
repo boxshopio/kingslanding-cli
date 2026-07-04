@@ -1,6 +1,6 @@
 {
   "name": "@kingslanding/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Deploy static sites to King's Landing from any terminal or CI/CD pipeline",
   "type": "module",
   "bin": {
