@@ -9,7 +9,8 @@ export function registerLogoutCommand(program: Command): void {
     .command("logout")
     .description("Clear stored credentials")
     .action(async () => {
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const creds = loadCredentials(apiUrl);
 
       if (!creds) {

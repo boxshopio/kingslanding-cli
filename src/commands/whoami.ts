@@ -9,7 +9,8 @@ export function registerWhoamiCommand(program: Command): void {
     .command("whoami")
     .description("Show the current authenticated user")
     .action(async () => {
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
@@ -21,10 +22,7 @@ export function registerWhoamiCommand(program: Command): void {
       }
 
       const api = new ApiClient(apiUrl, authHeader);
-      const [account, teams] = await Promise.all([
-        api.getAccount(),
-        api.listTeams(),
-      ]);
+      const [account, teams] = await Promise.all([api.getAccount(), api.listTeams()]);
 
       console.log(account.email + " (" + account.plan_tier + ")");
 

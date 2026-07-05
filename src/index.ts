@@ -20,7 +20,11 @@ if (warning) console.warn(warning);
 
 const program = new Command();
 
-program.name("kl").description("Deploy static sites to King's Landing").version(getVersion());
+program
+  .name("kl")
+  .description("Deploy static sites to King's Landing")
+  .version(getVersion())
+  .option("-e, --env <name>", "Target a named environment (defined in ~/.config/kl/config.json)");
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
