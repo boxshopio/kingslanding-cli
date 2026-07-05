@@ -10,13 +10,14 @@ import { registerWhoamiCommand } from "./commands/whoami.js";
 import { registerDeployKeyCommand } from "./commands/deploy-key.js";
 import { CLIError } from "./lib/errors.js";
 import { checkCredentialPermissions } from "./lib/auth.js";
+import { getVersion } from "./lib/version.js";
 
 const warning = checkCredentialPermissions();
 if (warning) console.warn(warning);
 
 const program = new Command();
 
-program.name("kl").description("Deploy static sites to King's Landing").version("0.1.0");
+program.name("kl").description("Deploy static sites to King's Landing").version(getVersion());
 
 registerLoginCommand(program);
 registerLogoutCommand(program);
