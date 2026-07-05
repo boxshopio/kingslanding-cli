@@ -148,6 +148,35 @@ describe("resolveApiUrl", () => {
     expect(resolveApiUrl(tmpDir)).toBe("https://env-override");
     fs.rmSync(tmpDir, { recursive: true });
   });
+
+  it("resolves a built-in named env via the envName argument", () => {
+    expect(resolveApiUrl(undefined, "local")).toBe("https://api.kl.test");
+    expect(resolveApiUrl(undefined, "prod")).toBe("https://api.kingslanding.io");
+  });
+
+  it("named env beats KL_API_URL", () => {
+    process.env.KL_API_URL = "https://env-override";
+    expect(resolveApiUrl(undefined, "local")).toBe("https://api.kl.test");
+  });
+
+  it("named env beats kl.json api_url", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-env-test-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "kl.json"),
+      JSON.stringify({ project: "test", api_url: "https://custom.api" }),
+    );
+    expect(resolveApiUrl(tmpDir, "local")).toBe("https://api.kl.test");
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it("throws for an unknown named env", () => {
+    expect(() => resolveApiUrl(undefined, "stg")).toThrowError(/Unknown environment 'stg'/);
+  });
+
+  it("ignores an undefined envName and uses the normal chain", () => {
+    process.env.KL_API_URL = "https://api.kl.test";
+    expect(resolveApiUrl(undefined, undefined)).toBe("https://api.kl.test");
+  });
 });
 
 describe("resolveNamedEnv", () => {

@@ -115,7 +115,11 @@ export function resolveNamedEnv(name: string, userEnvs: Record<string, string> =
   return url;
 }
 
-export function resolveApiUrl(cwd?: string): string {
+export function resolveApiUrl(cwd?: string, envName?: string): string {
+  if (envName) {
+    return resolveNamedEnv(envName, loadGlobalConfig().environments ?? {});
+  }
+
   const resolvedCwd = cwd ?? process.cwd();
 
   const envUrl = process.env.KL_API_URL;
