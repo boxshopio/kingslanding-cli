@@ -1,9 +1,21 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { CLIError } from "./errors.js";
 
 const DEFAULT_API_URL = "https://api.kingslanding.io";
 const LOCAL_API_URL = "https://api.kl.test";
+
+/**
+ * Environments shipped with every install. `prod` is the zero-config default;
+ * `local` lines up with {@link isLocalMode}'s bypass auth. A user's
+ * `environments` map in config.json is merged over these, so any built-in can
+ * be repointed.
+ */
+const BUILTIN_ENVIRONMENTS: Record<string, string> = {
+  prod: DEFAULT_API_URL,
+  local: LOCAL_API_URL,
+};
 
 /** Pre-XDG location; migrated to {@link KL_DIR} on first run. */
 export const LEGACY_KL_DIR = path.join(os.homedir(), ".kl");
@@ -68,6 +80,7 @@ export interface LoginPreferences {
 export interface GlobalConfig {
   api_url?: string;
   login?: LoginPreferences;
+  environments?: Record<string, string>;
 }
 
 /**
@@ -82,6 +95,24 @@ export function loadGlobalConfig(dir: string = KL_DIR): GlobalConfig {
   } catch {
     return {};
   }
+}
+
+/**
+ * Resolve a named environment to its API URL. Built-in envs are merged with the
+ * caller-supplied user envs (user wins). An unknown name throws a {@link CLIError}
+ * listing the known names, so the top-level handler prints it and exits cleanly.
+ */
+export function resolveNamedEnv(name: string, userEnvs: Record<string, string> = {}): string {
+  const envs = { ...BUILTIN_ENVIRONMENTS, ...userEnvs };
+  const url = envs[name];
+  if (!url) {
+    const known = Object.keys(envs).sort().join(", ");
+    throw new CLIError(
+      `Unknown environment '${name}'. Known: ${known}\n` +
+        `  (define under "environments" in ${path.join(KL_DIR, "config.json")})`,
+    );
+  }
+  return url;
 }
 
 export function resolveApiUrl(cwd?: string): string {

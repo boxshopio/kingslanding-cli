@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 
 let resolveApiUrl: typeof import("../../src/lib/config.js").resolveApiUrl;
+let resolveNamedEnv: typeof import("../../src/lib/config.js").resolveNamedEnv;
 let loadProjectConfig: typeof import("../../src/lib/config.js").loadProjectConfig;
 let writeProjectConfig: typeof import("../../src/lib/config.js").writeProjectConfig;
 let isLocalMode: typeof import("../../src/lib/config.js").isLocalMode;
@@ -16,6 +17,7 @@ beforeEach(async () => {
   vi.resetModules();
   const mod = await import("../../src/lib/config.js");
   resolveApiUrl = mod.resolveApiUrl;
+  resolveNamedEnv = mod.resolveNamedEnv;
   loadProjectConfig = mod.loadProjectConfig;
   writeProjectConfig = mod.writeProjectConfig;
   isLocalMode = mod.isLocalMode;
@@ -145,6 +147,39 @@ describe("resolveApiUrl", () => {
     fs.writeFileSync(klJson, JSON.stringify({ project: "test", api_url: "https://custom.api" }));
     expect(resolveApiUrl(tmpDir)).toBe("https://env-override");
     fs.rmSync(tmpDir, { recursive: true });
+  });
+});
+
+describe("resolveNamedEnv", () => {
+  it("resolves the built-in prod env with no user config", () => {
+    expect(resolveNamedEnv("prod")).toBe("https://api.kingslanding.io");
+  });
+
+  it("resolves the built-in local env with no user config", () => {
+    expect(resolveNamedEnv("local")).toBe("https://api.kl.test");
+  });
+
+  it("resolves a user-defined env", () => {
+    expect(resolveNamedEnv("dev", { dev: "https://api.dev.kingslanding.io" })).toBe(
+      "https://api.dev.kingslanding.io",
+    );
+  });
+
+  it("lets a user env override a built-in of the same name", () => {
+    expect(resolveNamedEnv("prod", { prod: "https://api.internal.test" })).toBe(
+      "https://api.internal.test",
+    );
+  });
+
+  it("throws a CLIError listing known envs for an unknown name", () => {
+    expect(() => resolveNamedEnv("stg")).toThrowError(/Unknown environment 'stg'/);
+    expect(() => resolveNamedEnv("stg")).toThrowError(/local, prod/);
+  });
+
+  it("includes user envs in the known-list of the error", () => {
+    expect(() => resolveNamedEnv("stg", { dev: "https://api.dev.kingslanding.io" })).toThrowError(
+      /dev, local, prod/,
+    );
   });
 });
 
