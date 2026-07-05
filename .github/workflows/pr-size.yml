@@ -1,4 +1,10 @@
-# Managed by boxshop-cli (bs hooks) — do not edit
+# Self-contained PR size labeler.
+#
+# NOTE: intentionally NOT the bs-hooks reusable-workflow stub. This repo is
+# PUBLIC and boxshop-config is PRIVATE, and GitHub forbids a public repo from
+# calling a private repo's reusable workflow ("workflow was not found" at
+# startup). We use a marketplace action (CodelyTV/pr-size-labeler, MIT) that
+# runs entirely in-repo instead. Do not let `bs hooks` restore the stub here.
 name: PR Size
 on:
   pull_request:
@@ -6,6 +12,18 @@ on:
     types: [opened, synchronize, reopened]
 jobs:
   label:
-    uses: boxshopio/boxshop-config/.github/workflows/pr-size.yml@main
+    runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
+    steps:
+      # Pinned to the v1.10.4 commit SHA (supply-chain: pin third-party actions).
+      - uses: CodelyTV/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9
+        with:
+          xs_max_size: "10"
+          s_max_size: "100"
+          m_max_size: "400"
+          l_max_size: "800"
+          fail_if_xl: "false"
+          # Don't count generated/prose files toward review size.
+          files_to_ignore: "*.md docs/** package-lock.json"
