@@ -17,16 +17,20 @@ export class AuthService {
   ) {}
 
   async login(
-    onShowCode: (userCode: string, verificationUrl: string) => void,
+    onShowCode: (
+      userCode: string,
+      verificationUri: string,
+      verificationUriComplete: string | undefined,
+    ) => void,
     pollInterval = DEFAULT_POLL_INTERVAL,
   ): Promise<{
     access_token: string;
     refresh_token: string;
     id_token: string;
   }> {
-    const { device_code, user_code, verification_url } =
+    const { device_code, user_code, verification_uri, verification_uri_complete } =
       await this.api.createDeviceCode();
-    onShowCode(user_code, verification_url);
+    onShowCode(user_code, verification_uri, verification_uri_complete);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -48,9 +52,7 @@ export class AuthService {
       }
 
       if (result.status === "expired") {
-        throw new CLIError(
-          "Device code expired. Run `kl login` to try again.",
-        );
+        throw new CLIError("Device code expired. Run `kl login` to try again.");
       }
     }
   }

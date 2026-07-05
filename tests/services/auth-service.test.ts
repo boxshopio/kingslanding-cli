@@ -25,7 +25,8 @@ describe("AuthService", () => {
         createDeviceCode: vi.fn().mockResolvedValue({
           device_code: "dc-1",
           user_code: "ABCD-1234",
-          verification_url: "https://kingslanding.io/device",
+          verification_uri: "https://kingslanding.io/device",
+          verification_uri_complete: "https://kingslanding.io/device?user_code=ABCD-1234",
           expires_in: 600,
         }),
         pollDeviceToken: vi
@@ -54,12 +55,11 @@ describe("AuthService", () => {
         createDeviceCode: vi.fn().mockResolvedValue({
           device_code: "dc-1",
           user_code: "ABCD-1234",
-          verification_url: "https://kingslanding.io/device",
+          verification_uri: "https://kingslanding.io/device",
+          verification_uri_complete: "https://kingslanding.io/device?user_code=ABCD-1234",
           expires_in: 600,
         }),
-        pollDeviceToken: vi
-          .fn()
-          .mockResolvedValue({ status: "authorized", tokens }),
+        pollDeviceToken: vi.fn().mockResolvedValue({ status: "authorized", tokens }),
       });
 
       const onShowCode = vi.fn();
@@ -69,6 +69,7 @@ describe("AuthService", () => {
       expect(onShowCode).toHaveBeenCalledWith(
         "ABCD-1234",
         "https://kingslanding.io/device",
+        "https://kingslanding.io/device?user_code=ABCD-1234",
       );
     });
 
@@ -77,12 +78,11 @@ describe("AuthService", () => {
         createDeviceCode: vi.fn().mockResolvedValue({
           device_code: "dc-1",
           user_code: "ABCD-1234",
-          verification_url: "https://kingslanding.io/device",
+          verification_uri: "https://kingslanding.io/device",
+          verification_uri_complete: "https://kingslanding.io/device?user_code=ABCD-1234",
           expires_in: 600,
         }),
-        pollDeviceToken: vi
-          .fn()
-          .mockResolvedValue({ status: "expired", tokens: null }),
+        pollDeviceToken: vi.fn().mockResolvedValue({ status: "expired", tokens: null }),
       });
 
       const service = new AuthService(api, "https://api.kingslanding.io");

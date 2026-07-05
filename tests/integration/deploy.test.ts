@@ -17,15 +17,8 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
  * `localstack:4566`. From the host machine, we need `localhost:4566`.
  */
 class LocalApiClient extends ApiClient {
-  async uploadFile(
-    presignedUrl: string,
-    body: Buffer,
-    contentType: string,
-  ): Promise<void> {
-    const rewritten = presignedUrl.replace(
-      "http://localstack:4566",
-      "http://localhost:4566",
-    );
+  async uploadFile(presignedUrl: string, body: Buffer, contentType: string): Promise<void> {
+    const rewritten = presignedUrl.replace("http://localstack:4566", "http://localhost:4566");
     return super.uploadFile(rewritten, body, contentType);
   }
 }
@@ -95,10 +88,7 @@ describe("CLI integration (local stack)", () => {
           "<h1>Integration Test: " + projectName + "</h1>",
         );
         fs.mkdirSync(path.join(tmpDir, "assets"));
-        fs.writeFileSync(
-          path.join(tmpDir, "assets", "style.css"),
-          "body { color: blue; }",
-        );
+        fs.writeFileSync(path.join(tmpDir, "assets", "style.css"), "body { color: blue; }");
 
         // Build manifest
         const files = buildFileManifest(tmpDir);
@@ -228,8 +218,8 @@ describe("CLI integration (local stack)", () => {
       // Create device code
       const codeResult = await api.createDeviceCode();
       expect(codeResult.device_code).toBeDefined();
-      expect(codeResult.user_code).toMatch(/^[A-Z]{4}-\d{4}$/);
-      expect(codeResult.verification_url).toContain("/device");
+      expect(codeResult.user_code).toMatch(/^[BCDFGHJKLMNPQRSTVWXZ]{4}-[BCDFGHJKLMNPQRSTVWXZ]{4}$/);
+      expect(codeResult.verification_uri).toContain("/device");
       expect(codeResult.expires_in).toBeGreaterThan(0);
 
       // Poll — should be pending (nobody verified yet)
