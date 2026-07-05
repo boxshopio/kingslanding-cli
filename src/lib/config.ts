@@ -4,7 +4,53 @@ import * as os from "node:os";
 
 const DEFAULT_API_URL = "https://api.kingslanding.io";
 const LOCAL_API_URL = "https://api.kl.test";
-export const KL_DIR = path.join(os.homedir(), ".kl");
+
+/** Pre-XDG location; migrated to {@link KL_DIR} on first run. */
+export const LEGACY_KL_DIR = path.join(os.homedir(), ".kl");
+
+/**
+ * Resolve kl's config/state directory following the XDG Base Directory Spec:
+ * `$XDG_CONFIG_HOME/kl`, defaulting to `~/.config/kl`. Per the spec, a
+ * non-absolute `$XDG_CONFIG_HOME` is invalid and ignored. Both `config.json`
+ * and `credentials.json` live here (single-dir model, like GitHub's `gh`).
+ */
+export function resolveKlDir(env: NodeJS.ProcessEnv = process.env): string {
+  const xdg = env.XDG_CONFIG_HOME;
+  const base = xdg && path.isAbsolute(xdg) ? xdg : path.join(os.homedir(), ".config");
+  return path.join(base, "kl");
+}
+
+export const KL_DIR = resolveKlDir();
+
+/**
+ * One-time migration of the legacy `~/.kl` directory to {@link KL_DIR}. Runs at
+ * CLI startup. No-op if the legacy dir is absent or the new dir already exists,
+ * so it never clobbers current config. Best-effort: a failure warns rather than
+ * crashing, since the user can always re-authenticate with `kl login`.
+ */
+export function migrateLegacyConfigDir(
+  legacyDir: string = LEGACY_KL_DIR,
+  newDir: string = KL_DIR,
+): void {
+  if (legacyDir === newDir) return;
+  if (!fs.existsSync(legacyDir) || fs.existsSync(newDir)) return;
+  try {
+    fs.mkdirSync(path.dirname(newDir), { recursive: true });
+    fs.renameSync(legacyDir, newDir);
+    console.warn("Migrated kl config from " + legacyDir + " to " + newDir);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.warn(
+      "Warning: could not migrate " +
+        legacyDir +
+        " to " +
+        newDir +
+        " (" +
+        reason +
+        "). Run 'kl login' to re-authenticate.",
+    );
+  }
+}
 
 export interface ProjectConfig {
   project: string;
@@ -25,7 +71,7 @@ export interface GlobalConfig {
 }
 
 /**
- * Load the global config from `<dir>/config.json` (default `~/.kl`). Returns an
+ * Load the global config from `<dir>/config.json` (default `~/.config/kl`). Returns an
  * empty object when the file is missing or malformed — config is always optional.
  */
 export function loadGlobalConfig(dir: string = KL_DIR): GlobalConfig {

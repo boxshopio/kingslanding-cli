@@ -10,7 +10,10 @@ import { registerWhoamiCommand } from "./commands/whoami.js";
 import { registerDeployKeyCommand } from "./commands/deploy-key.js";
 import { CLIError } from "./lib/errors.js";
 import { checkCredentialPermissions } from "./lib/auth.js";
+import { migrateLegacyConfigDir } from "./lib/config.js";
 import { getVersion } from "./lib/version.js";
+
+migrateLegacyConfigDir();
 
 const warning = checkCredentialPermissions();
 if (warning) console.warn(warning);

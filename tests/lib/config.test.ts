@@ -9,6 +9,8 @@ let writeProjectConfig: typeof import("../../src/lib/config.js").writeProjectCon
 let isLocalMode: typeof import("../../src/lib/config.js").isLocalMode;
 let siteUrl: typeof import("../../src/lib/config.js").siteUrl;
 let loadGlobalConfig: typeof import("../../src/lib/config.js").loadGlobalConfig;
+let resolveKlDir: typeof import("../../src/lib/config.js").resolveKlDir;
+let migrateLegacyConfigDir: typeof import("../../src/lib/config.js").migrateLegacyConfigDir;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -19,6 +21,8 @@ beforeEach(async () => {
   isLocalMode = mod.isLocalMode;
   siteUrl = mod.siteUrl;
   loadGlobalConfig = mod.loadGlobalConfig;
+  resolveKlDir = mod.resolveKlDir;
+  migrateLegacyConfigDir = mod.migrateLegacyConfigDir;
 });
 
 describe("loadGlobalConfig", () => {
@@ -43,6 +47,65 @@ describe("loadGlobalConfig", () => {
     fs.writeFileSync(path.join(tmpDir, "config.json"), "{ not valid json");
     expect(loadGlobalConfig(tmpDir)).toEqual({});
     fs.rmSync(tmpDir, { recursive: true });
+  });
+});
+
+describe("resolveKlDir", () => {
+  it("defaults to ~/.config/kl when XDG_CONFIG_HOME is unset", () => {
+    expect(resolveKlDir({})).toBe(path.join(os.homedir(), ".config", "kl"));
+  });
+
+  it("honors an absolute XDG_CONFIG_HOME", () => {
+    expect(resolveKlDir({ XDG_CONFIG_HOME: "/custom/cfg" })).toBe(path.join("/custom/cfg", "kl"));
+  });
+
+  it("ignores a relative XDG_CONFIG_HOME per the XDG spec", () => {
+    expect(resolveKlDir({ XDG_CONFIG_HOME: "relative/path" })).toBe(
+      path.join(os.homedir(), ".config", "kl"),
+    );
+  });
+});
+
+describe("migrateLegacyConfigDir", () => {
+  it("moves the legacy dir to the new location, preserving file modes", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "kl-mig-"));
+    const legacy = path.join(root, ".kl");
+    const next = path.join(root, ".config", "kl");
+    fs.mkdirSync(legacy, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(legacy, "credentials.json"), "{}", { mode: 0o600 });
+    fs.writeFileSync(path.join(legacy, "config.json"), "{}");
+
+    migrateLegacyConfigDir(legacy, next);
+
+    expect(fs.existsSync(legacy)).toBe(false);
+    expect(fs.readFileSync(path.join(next, "config.json"), "utf-8")).toBe("{}");
+    expect(fs.statSync(path.join(next, "credentials.json")).mode & 0o777).toBe(0o600);
+    fs.rmSync(root, { recursive: true });
+  });
+
+  it("does not clobber an existing new dir", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "kl-mig-"));
+    const legacy = path.join(root, ".kl");
+    const next = path.join(root, ".config", "kl");
+    fs.mkdirSync(legacy, { recursive: true });
+    fs.writeFileSync(path.join(legacy, "config.json"), "legacy");
+    fs.mkdirSync(next, { recursive: true });
+    fs.writeFileSync(path.join(next, "config.json"), "existing");
+
+    migrateLegacyConfigDir(legacy, next);
+
+    expect(fs.readFileSync(path.join(next, "config.json"), "utf-8")).toBe("existing");
+    expect(fs.existsSync(legacy)).toBe(true);
+    fs.rmSync(root, { recursive: true });
+  });
+
+  it("is a no-op when the legacy dir does not exist", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "kl-mig-"));
+    const legacy = path.join(root, ".kl");
+    const next = path.join(root, ".config", "kl");
+    migrateLegacyConfigDir(legacy, next);
+    expect(fs.existsSync(next)).toBe(false);
+    fs.rmSync(root, { recursive: true });
   });
 });
 
