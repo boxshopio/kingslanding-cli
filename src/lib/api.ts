@@ -61,7 +61,8 @@ export interface DeployKeyStatusResponse {
 export interface DeviceCodeResponse {
   device_code: string;
   user_code: string;
-  verification_url: string;
+  verification_uri: string;
+  verification_uri_complete?: string;
   expires_in: number;
 }
 
@@ -95,21 +96,11 @@ export class ApiClient {
   }
 
   async pollDeviceToken(deviceCode: string): Promise<DeviceTokenResponse> {
-    return this.request(
-      "POST",
-      "/auth/device/token",
-      { device_code: deviceCode },
-      false,
-    );
+    return this.request("POST", "/auth/device/token", { device_code: deviceCode }, false);
   }
 
   async refreshToken(refreshToken: string): Promise<RefreshResponse> {
-    return this.request(
-      "POST",
-      "/auth/refresh",
-      { refresh_token: refreshToken },
-      false,
-    );
+    return this.request("POST", "/auth/refresh", { refresh_token: refreshToken }, false);
   }
 
   async logout(refreshToken: string): Promise<void> {
@@ -126,9 +117,7 @@ export class ApiClient {
     return this.request("GET", "/teams");
   }
 
-  async listProjects(
-    limit = 100,
-  ): Promise<{ items: ProjectInfo[]; next_token: string | null }> {
+  async listProjects(limit = 100): Promise<{ items: ProjectInfo[]; next_token: string | null }> {
     return this.request("GET", "/projects?limit=" + limit);
   }
 
@@ -142,17 +131,10 @@ export class ApiClient {
     options?: { create?: boolean },
   ): Promise<DeployInitiateResponse> {
     const qs = options?.create ? "?create=true" : "";
-    return this.request(
-      "POST",
-      "/projects/" + projectName + "/deploy" + qs,
-      body,
-    );
+    return this.request("POST", "/projects/" + projectName + "/deploy" + qs, body);
   }
 
-  async finalizeDeploy(
-    projectName: string,
-    deploymentId: string,
-  ): Promise<DeployFinalizeResponse> {
+  async finalizeDeploy(projectName: string, deploymentId: string): Promise<DeployFinalizeResponse> {
     return this.request(
       "POST",
       "/projects/" + projectName + "/deploy/" + deploymentId + "/finalize",
@@ -171,11 +153,7 @@ export class ApiClient {
     await this.request("DELETE", "/projects/" + projectName + "/deploy-key");
   }
 
-  async uploadFile(
-    presignedUrl: string,
-    body: Buffer,
-    contentType: string,
-  ): Promise<void> {
+  async uploadFile(presignedUrl: string, body: Buffer, contentType: string): Promise<void> {
     // LocalStack presigned URLs use Docker-internal hostname; rewrite for host access
     const url = presignedUrl.replace("http://localstack:", "http://localhost:");
     let response: Response;
@@ -189,19 +167,11 @@ export class ApiClient {
       throw new NetworkError(presignedUrl);
     }
     if (!response.ok) {
-      throw new ApiError(
-        response.status,
-        "S3 upload failed: " + response.statusText,
-      );
+      throw new ApiError(response.status, "S3 upload failed: " + response.statusText);
     }
   }
 
-  private async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-    auth = true,
-  ): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
     const url = this.baseUrl + "/api/v1" + path;
     const headers: Record<string, string> = {};
 
