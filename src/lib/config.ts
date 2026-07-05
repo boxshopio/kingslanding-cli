@@ -12,6 +12,32 @@ export interface ProjectConfig {
   api_url?: string;
 }
 
+export interface LoginPreferences {
+  /** Whether `kl login` auto-opens the browser (default true). */
+  browser?: boolean;
+  /** Whether `kl login` always renders the QR code (default false / auto). */
+  qr?: boolean;
+}
+
+export interface GlobalConfig {
+  api_url?: string;
+  login?: LoginPreferences;
+}
+
+/**
+ * Load the global config from `<dir>/config.json` (default `~/.kl`). Returns an
+ * empty object when the file is missing or malformed — config is always optional.
+ */
+export function loadGlobalConfig(dir: string = KL_DIR): GlobalConfig {
+  const configPath = path.join(dir, "config.json");
+  if (!fs.existsSync(configPath)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8")) as GlobalConfig;
+  } catch {
+    return {};
+  }
+}
+
 export function resolveApiUrl(cwd?: string): string {
   const resolvedCwd = cwd ?? process.cwd();
 
@@ -21,16 +47,8 @@ export function resolveApiUrl(cwd?: string): string {
   const config = loadProjectConfig(resolvedCwd);
   if (config?.api_url) return config.api_url;
 
-  const globalConfigPath = path.join(KL_DIR, "config.json");
-  if (fs.existsSync(globalConfigPath)) {
-    try {
-      const raw = fs.readFileSync(globalConfigPath, "utf-8");
-      const globalConfig = JSON.parse(raw) as { api_url?: string };
-      if (globalConfig.api_url) return globalConfig.api_url;
-    } catch {
-      // Ignore malformed global config
-    }
-  }
+  const globalConfig = loadGlobalConfig();
+  if (globalConfig.api_url) return globalConfig.api_url;
 
   return DEFAULT_API_URL;
 }

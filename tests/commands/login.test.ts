@@ -3,6 +3,7 @@ import {
   resolveVerificationTarget,
   isHeadlessSession,
   resolveLoginDisplay,
+  resolveLoginPreferences,
   formatLoginMessage,
 } from "../../src/commands/login.js";
 
@@ -66,6 +67,42 @@ describe("resolveLoginDisplay", () => {
     expect(resolveLoginDisplay({ noBrowser: false, qr: false, headless: true })).toEqual({
       openBrowser: false,
       showQr: true,
+    });
+  });
+});
+
+describe("resolveLoginPreferences", () => {
+  it("defaults to browser on, qr off with no flags or config", () => {
+    expect(resolveLoginPreferences({ browserFlag: true, qrFlag: false }, {})).toEqual({
+      noBrowser: false,
+      qr: false,
+    });
+  });
+
+  it("honors the --no-browser flag", () => {
+    expect(resolveLoginPreferences({ browserFlag: false, qrFlag: false }, {})).toEqual({
+      noBrowser: true,
+      qr: false,
+    });
+  });
+
+  it("honors the --qr flag", () => {
+    expect(resolveLoginPreferences({ browserFlag: true, qrFlag: true }, {})).toEqual({
+      noBrowser: false,
+      qr: true,
+    });
+  });
+
+  it("honors persisted config (browser:false, qr:true)", () => {
+    expect(
+      resolveLoginPreferences({ browserFlag: true, qrFlag: false }, { browser: false, qr: true }),
+    ).toEqual({ noBrowser: true, qr: true });
+  });
+
+  it("lets the --qr flag turn the QR on even when config sets qr:false", () => {
+    expect(resolveLoginPreferences({ browserFlag: true, qrFlag: true }, { qr: false })).toEqual({
+      noBrowser: false,
+      qr: true,
     });
   });
 });

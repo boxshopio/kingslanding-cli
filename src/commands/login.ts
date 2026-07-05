@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
 import type { Command } from "commander";
 import { ApiClient } from "../lib/api.js";
-import { resolveApiUrl, isLocalMode } from "../lib/config.js";
+import { resolveApiUrl, isLocalMode, loadGlobalConfig } from "../lib/config.js";
+import type { LoginPreferences } from "../lib/config.js";
 import { getAuthHeader, loadCredentials, isTokenExpiringSoon } from "../lib/auth.js";
 import { createSpinner } from "../lib/output.js";
 import { renderQrCode } from "../lib/qr.js";
@@ -36,6 +37,22 @@ export function isHeadlessSession(env: NodeJS.ProcessEnv, platform: NodeJS.Platf
   if (env.SSH_CONNECTION || env.SSH_TTY) return true;
   if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) return true;
   return false;
+}
+
+/**
+ * Merge command-line flags with persisted config into effective preferences.
+ * Precedence: an explicit flag wins, then persisted config, then the default.
+ * `--no-browser` (browserFlag=false) and `--qr` (qrFlag=true) are the only
+ * flags, so a flag can force the browser off or the QR on; config supplies the
+ * default for whichever flag wasn't passed.
+ */
+export function resolveLoginPreferences(
+  flags: { browserFlag: boolean; qrFlag: boolean },
+  config: LoginPreferences,
+): { noBrowser: boolean; qr: boolean } {
+  const noBrowser = flags.browserFlag === false || config.browser === false;
+  const qr = flags.qrFlag || config.qr === true;
+  return { noBrowser, qr };
 }
 
 export interface LoginDisplay {
@@ -135,9 +152,13 @@ export function registerLoginCommand(program: Command): void {
 
       const spinner = createSpinner("Waiting for authorization…");
 
+      const prefs = resolveLoginPreferences(
+        { browserFlag: options.browser, qrFlag: options.qr ?? false },
+        loadGlobalConfig().login ?? {},
+      );
       const display = resolveLoginDisplay({
-        noBrowser: !options.browser,
-        qr: options.qr ?? false,
+        noBrowser: prefs.noBrowser,
+        qr: prefs.qr,
         headless: isHeadlessSession(process.env, process.platform),
       });
 

@@ -8,6 +8,7 @@ let loadProjectConfig: typeof import("../../src/lib/config.js").loadProjectConfi
 let writeProjectConfig: typeof import("../../src/lib/config.js").writeProjectConfig;
 let isLocalMode: typeof import("../../src/lib/config.js").isLocalMode;
 let siteUrl: typeof import("../../src/lib/config.js").siteUrl;
+let loadGlobalConfig: typeof import("../../src/lib/config.js").loadGlobalConfig;
 
 beforeEach(async () => {
   vi.resetModules();
@@ -17,6 +18,32 @@ beforeEach(async () => {
   writeProjectConfig = mod.writeProjectConfig;
   isLocalMode = mod.isLocalMode;
   siteUrl = mod.siteUrl;
+  loadGlobalConfig = mod.loadGlobalConfig;
+});
+
+describe("loadGlobalConfig", () => {
+  it("returns an empty object when no config file exists", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-gc-"));
+    expect(loadGlobalConfig(tmpDir)).toEqual({});
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it("parses persisted login preferences", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-gc-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "config.json"),
+      JSON.stringify({ login: { qr: true, browser: false } }),
+    );
+    expect(loadGlobalConfig(tmpDir).login).toEqual({ qr: true, browser: false });
+    fs.rmSync(tmpDir, { recursive: true });
+  });
+
+  it("returns an empty object on malformed JSON", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-gc-"));
+    fs.writeFileSync(path.join(tmpDir, "config.json"), "{ not valid json");
+    expect(loadGlobalConfig(tmpDir)).toEqual({});
+    fs.rmSync(tmpDir, { recursive: true });
+  });
 });
 
 describe("resolveApiUrl", () => {
@@ -72,7 +99,10 @@ describe("loadProjectConfig", () => {
   it("logs deprecation warning when team field is present", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kl-config-test-"));
     const klJson = path.join(tmpDir, "kl.json");
-    fs.writeFileSync(klJson, JSON.stringify({ project: "my-site", directory: "dist", team: "frontend" }));
+    fs.writeFileSync(
+      klJson,
+      JSON.stringify({ project: "my-site", directory: "dist", team: "frontend" }),
+    );
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     loadProjectConfig(tmpDir);
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("deprecated"));
@@ -119,11 +149,15 @@ describe("isLocalMode", () => {
 
 describe("siteUrl", () => {
   it("derives site URL from prod API URL", () => {
-    expect(siteUrl("my-site", "https://api.kingslanding.io")).toBe("https://my-site.kingslanding.io");
+    expect(siteUrl("my-site", "https://api.kingslanding.io")).toBe(
+      "https://my-site.kingslanding.io",
+    );
   });
 
   it("derives site URL from dev API URL", () => {
-    expect(siteUrl("my-site", "https://api.dev.kingslanding.io")).toBe("https://my-site.dev.kingslanding.io");
+    expect(siteUrl("my-site", "https://api.dev.kingslanding.io")).toBe(
+      "https://my-site.dev.kingslanding.io",
+    );
   });
 
   it("derives site URL from local API URL", () => {
@@ -131,6 +165,8 @@ describe("siteUrl", () => {
   });
 
   it("handles custom API URLs", () => {
-    expect(siteUrl("proj", "https://api.staging.example.com")).toBe("https://proj.staging.example.com");
+    expect(siteUrl("proj", "https://api.staging.example.com")).toBe(
+      "https://proj.staging.example.com",
+    );
   });
 });
