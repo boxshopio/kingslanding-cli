@@ -82,9 +82,9 @@ export function resolveLoginDisplay(opts: {
 /**
  * Build the login prompt, adapting the wording to what actually happens:
  * automatic framing ("Opening your browser…") when we open it, manual framing
- * ("visit this URL / scan this") when we don't. The code is demoted to a
- * pre-filled note rather than an "Enter code" instruction, since the browser
- * pre-fills it.
+ * ("visit this URL / scan this") when we don't. In browser mode the code isn't
+ * repeated — it's already visible in the URL and pre-filled on the page. In
+ * manual mode it's shown as a clean token for typing.
  */
 export function formatLoginMessage(args: {
   userCode: string;
@@ -100,7 +100,6 @@ export function formatLoginMessage(args: {
     lines.push("");
     lines.push("  Didn't open? Visit:");
     lines.push("  " + target);
-    lines.push(`  Code ${userCode} is pre-filled.`);
   } else {
     lines.push("To authorize this device, visit:");
     lines.push("  " + target);

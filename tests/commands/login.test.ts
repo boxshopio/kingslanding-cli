@@ -108,7 +108,7 @@ describe("resolveLoginPreferences", () => {
 });
 
 describe("formatLoginMessage", () => {
-  it("uses automatic framing and a pre-filled note when the browser opens", () => {
+  it("uses automatic framing with the code only in the URL when the browser opens", () => {
     const msg = formatLoginMessage({
       userCode: "BKMM-QGCB",
       target: "https://kl.io/device?user_code=BKMM-QGCB",
@@ -116,7 +116,9 @@ describe("formatLoginMessage", () => {
       qr: null,
     });
     expect(msg).toContain("Opening your browser");
-    expect(msg).toContain("BKMM-QGCB is pre-filled");
+    expect(msg).toContain("https://kl.io/device?user_code=BKMM-QGCB");
+    // The code is visible in the URL — no redundant "pre-filled" line.
+    expect(msg).not.toContain("pre-filled");
     expect(msg).not.toContain("Or scan");
   });
 
