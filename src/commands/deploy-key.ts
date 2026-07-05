@@ -10,9 +10,7 @@ function resolveProject(options: { project?: string }): string {
   const config = loadProjectConfig(process.cwd());
   const projectName = options.project ?? config?.project;
   if (!projectName) {
-    throw new CLIError(
-      "No project name. Use --project <name> or run `kl init`.",
-    );
+    throw new CLIError("No project name. Use --project <name> or run `kl init`.");
   }
   return projectName;
 }
@@ -21,15 +19,13 @@ function warnTeamDeprecation(team: string | undefined): void {
   if (team) {
     console.warn(
       "Warning: --team is no longer needed and will be removed in a future version. " +
-      "The server now resolves project ownership automatically.",
+        "The server now resolves project ownership automatically.",
     );
   }
 }
 
 export function registerDeployKeyCommand(program: Command): void {
-  const cmd = program
-    .command("deploy-key")
-    .description("Manage deploy keys for CI/CD");
+  const cmd = program.command("deploy-key").description("Manage deploy keys for CI/CD");
 
   cmd
     .command("create")
@@ -39,7 +35,8 @@ export function registerDeployKeyCommand(program: Command): void {
     .action(async (options: { project?: string; team?: string }) => {
       warnTeamDeprecation(options.team);
 
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
@@ -67,7 +64,8 @@ export function registerDeployKeyCommand(program: Command): void {
     .action(async (options: { project?: string; team?: string }) => {
       warnTeamDeprecation(options.team);
 
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
@@ -99,7 +97,8 @@ export function registerDeployKeyCommand(program: Command): void {
     .action(async (options: { project?: string; team?: string }) => {
       warnTeamDeprecation(options.team);
 
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
@@ -114,9 +113,7 @@ export function registerDeployKeyCommand(program: Command): void {
         console.log("Deploy key active for " + projectName);
         console.log("  Prefix: " + result.key_prefix);
         if (result.created_at) {
-          console.log(
-            "  Created: " + new Date(result.created_at * 1000).toISOString(),
-          );
+          console.log("  Created: " + new Date(result.created_at * 1000).toISOString());
         }
       } else {
         console.log("No deploy key configured for " + projectName + ".");

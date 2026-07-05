@@ -13,9 +13,7 @@ function formatProjectRows(projects: ProjectInfo[], apiUrl: string): string[][] 
     siteUrl(p.name, apiUrl),
     String(p.file_count),
     formatBytes(p.total_size_bytes),
-    p.last_updated
-      ? new Date(p.last_updated * 1000).toLocaleDateString()
-      : "—",
+    p.last_updated ? new Date(p.last_updated * 1000).toLocaleDateString() : "—",
   ]);
 }
 
@@ -26,7 +24,8 @@ export function registerProjectsCommand(program: Command): void {
     .option("-t, --team <slug>", "List projects for a team")
     .option("--personal", "List only personal projects")
     .action(async (options: { team?: string; personal?: boolean }) => {
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
       const authHeader = getAuthHeader(apiUrl);
       if (!authHeader) {
         throw new AuthError("Not logged in. Run `kl login` first.");
@@ -39,13 +38,17 @@ export function registerProjectsCommand(program: Command): void {
       if (options.team) {
         const teamId = await projectService.resolveTeamId(options.team);
         const projects = await projectService.listTeamProjects(teamId);
-        console.log(formatTable(headers, formatProjectRows(projects, apiUrl), "No projects found."));
+        console.log(
+          formatTable(headers, formatProjectRows(projects, apiUrl), "No projects found."),
+        );
         return;
       }
 
       if (options.personal) {
         const projects = await projectService.listProjects();
-        console.log(formatTable(headers, formatProjectRows(projects, apiUrl), "No projects found."));
+        console.log(
+          formatTable(headers, formatProjectRows(projects, apiUrl), "No projects found."),
+        );
         return;
       }
 

@@ -33,7 +33,8 @@ export function registerDeployCommand(program: Command): void {
       ) => {
         const cwd = process.cwd();
         const config = loadProjectConfig(cwd);
-        const apiUrl = resolveApiUrl(cwd);
+        const envName = program.opts().env as string | undefined;
+        const apiUrl = resolveApiUrl(cwd, envName);
 
         // Resolve deploy directory
         const relativeDir = dirArg ?? config?.directory ?? ".";

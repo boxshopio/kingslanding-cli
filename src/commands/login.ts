@@ -126,7 +126,8 @@ export function registerLoginCommand(program: Command): void {
     .option("--no-browser", "Don't open the browser automatically; show a QR to scan instead")
     .option("--qr", "Always show a QR code, even when the browser opens")
     .action(async (options: { browser: boolean; qr?: boolean }) => {
-      const apiUrl = resolveApiUrl();
+      const envName = program.opts().env as string | undefined;
+      const apiUrl = resolveApiUrl(undefined, envName);
 
       if (isLocalMode(apiUrl)) {
         console.log("Local mode — no login required.");
