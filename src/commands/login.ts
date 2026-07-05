@@ -27,11 +27,89 @@ export function resolveVerificationTarget(
   return verificationUriComplete ?? verificationUri;
 }
 
+/**
+ * A session is "headless" when there's no local browser to open — over SSH,
+ * or on Linux with no display server. In that case the QR (scanned from a
+ * phone) is the primary path rather than redundant with an auto-opened browser.
+ */
+export function isHeadlessSession(env: NodeJS.ProcessEnv, platform: NodeJS.Platform): boolean {
+  if (env.SSH_CONNECTION || env.SSH_TTY) return true;
+  if (platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY) return true;
+  return false;
+}
+
+export interface LoginDisplay {
+  openBrowser: boolean;
+  showQr: boolean;
+}
+
+/**
+ * Decide whether to auto-open a browser and whether to render the QR.
+ *
+ * We open a browser unless the user opted out (`--no-browser`) or there's
+ * none to open (headless). We show the QR whenever we're NOT auto-opening a
+ * browser (so the user has a scannable path), or when explicitly forced
+ * (`--qr`). On a normal desktop the QR is hidden — it would just duplicate
+ * the browser that already opened pre-filled.
+ */
+export function resolveLoginDisplay(opts: {
+  noBrowser: boolean;
+  qr: boolean;
+  headless: boolean;
+}): LoginDisplay {
+  const openBrowser = !opts.noBrowser && !opts.headless;
+  const showQr = opts.qr || !openBrowser;
+  return { openBrowser, showQr };
+}
+
+/**
+ * Build the login prompt, adapting the wording to what actually happens:
+ * automatic framing ("Opening your browser…") when we open it, manual framing
+ * ("visit this URL / scan this") when we don't. The code is demoted to a
+ * pre-filled note rather than an "Enter code" instruction, since the browser
+ * pre-fills it.
+ */
+export function formatLoginMessage(args: {
+  userCode: string;
+  target: string;
+  openBrowser: boolean;
+  qr: string | null;
+}): string {
+  const { userCode, target, openBrowser, qr } = args;
+  const lines: string[] = [];
+
+  if (openBrowser) {
+    lines.push("Opening your browser to authorize this device…");
+    lines.push("");
+    lines.push("  Didn't open? Visit:");
+    lines.push("  " + target);
+    lines.push(`  Code ${userCode} is pre-filled.`);
+  } else {
+    lines.push("To authorize this device, visit:");
+    lines.push("  " + target);
+  }
+
+  if (qr) {
+    lines.push("");
+    lines.push("Or scan with your phone:");
+    lines.push(qr);
+  }
+
+  if (!openBrowser) {
+    lines.push("");
+    lines.push(`Verification code: ${userCode}`);
+  }
+
+  return lines.join("\n");
+}
+
 export function registerLoginCommand(program: Command): void {
   program
     .command("login")
     .description("Authenticate with King's Landing")
-    .action(async () => {
+    .option("--no-browser", "Don't open the browser automatically; show a QR to scan instead")
+    .option("--qr", "Always show a QR code, even when the browser opens")
+    .action(async (options: { browser: boolean; qr?: boolean }) => {
       const apiUrl = resolveApiUrl();
 
       if (isLocalMode(apiUrl)) {
@@ -55,22 +133,33 @@ export function registerLoginCommand(program: Command): void {
       const api = new ApiClient(apiUrl, authHeader);
       const authService = new AuthService(api, apiUrl);
 
-      const spinner = createSpinner("Waiting for browser authorization...");
+      const spinner = createSpinner("Waiting for authorization…");
+
+      const display = resolveLoginDisplay({
+        noBrowser: !options.browser,
+        qr: options.qr ?? false,
+        headless: isHeadlessSession(process.env, process.platform),
+      });
 
       await authService.login((userCode, verificationUri, verificationUriComplete) => {
         const target = resolveVerificationTarget(verificationUri, verificationUriComplete);
-        console.log();
-        console.log("Open this URL in your browser:");
-        console.log("  " + target);
-        console.log();
-        console.log("Enter code: " + userCode);
-        console.log();
-        try {
-          console.log(renderQrCode(target));
-        } catch {
-          // QR is a convenience — never block login on a render failure
+
+        let qr: string | null = null;
+        if (display.showQr) {
+          try {
+            qr = renderQrCode(target);
+          } catch {
+            // QR is a convenience — never block login on a render failure
+          }
         }
-        tryOpenBrowser(target);
+
+        console.log();
+        console.log(formatLoginMessage({ userCode, target, openBrowser: display.openBrowser, qr }));
+        console.log();
+
+        if (display.openBrowser) {
+          tryOpenBrowser(target);
+        }
         spinner.start();
       });
 
